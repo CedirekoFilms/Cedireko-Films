@@ -403,6 +403,8 @@ class VideoModalPlayerController {
   #upnextTimer;
   #upnextRemaining;
   #isReducedMotion;
+  #historyEntry = false;
+  #pendingPops = 0;
 
   constructor() {
     this.#dialog = document.getElementById('video-modal');
@@ -566,6 +568,17 @@ class VideoModalPlayerController {
 
     // Shareable links: #film/<slug> opens that film
     window.addEventListener('hashchange', () => this.#openFromHash());
+    // Back (button, swipe or key) closes the viewer instead of leaving the site
+    window.addEventListener('popstate', () => {
+      if (this.#pendingPops > 0) {
+        this.#pendingPops -= 1;
+        return;
+      }
+      if (this.#dialog.open) {
+        this.#historyEntry = false;
+        this.close();
+      }
+    });
     this.#openFromHash();
   }
 
@@ -577,13 +590,30 @@ class VideoModalPlayerController {
       if (!this.#dialog?.open) this.#clearHash(); // unknown film link: drop it
       return;
     }
-    if (this.#cards.indexOf(card) !== this.#currentIndex) this.open(card);
+    if (this.#cards.indexOf(card) !== this.#currentIndex) this.open(card, { fromHash: true });
   }
 
-  #syncHash(card) {
+  /** Opening a film from the grid adds a history entry (so Back closes it); moving between films replaces it */
+  #syncHash(card, push) {
     const slug = card?.dataset.film;
     if (!slug || !window.history?.replaceState) return;
-    window.history.replaceState(null, '', `#film/${slug}`);
+    if (push && window.history.pushState) {
+      window.history.pushState({ cedirekoFilm: slug }, '', `#film/${slug}`);
+      this.#historyEntry = true;
+    } else {
+      window.history.replaceState(window.history.state, '', `#film/${slug}`);
+    }
+  }
+
+  /** On close: step back over the entry the viewer added, or just tidy the URL */
+  #leaveHistoryEntry() {
+    if (this.#historyEntry) {
+      this.#historyEntry = false;
+      this.#pendingPops += 1;
+      window.history.back();
+    } else {
+      this.#clearHash();
+    }
   }
 
   #clearHash() {
@@ -667,7 +697,7 @@ class VideoModalPlayerController {
     this.open(this.#cards[nextIndex]);
   }
 
-  open(cardOrIndex) {
+  open(cardOrIndex, { fromHash = false } = {}) {
     if (!this.#dialog) return;
 
     if (!this.#cards.length) {
@@ -708,7 +738,8 @@ class VideoModalPlayerController {
 
     if (this.#video && src) {
       this.#video.src = src;
-      const poster = card.querySelector('.reel-video')?.getAttribute('poster');
+      const cardVideo = card.querySelector('.reel-video');
+      const poster = cardVideo?.getAttribute('poster') || cardVideo?.dataset.poster;
       if (poster) {
         this.#video.setAttribute('poster', poster);
       } else {
@@ -736,7 +767,7 @@ class VideoModalPlayerController {
       );
     }
 
-    this.#syncHash(card);
+    this.#syncHash(card, !wasOpen && !fromHash);
   }
 
   close() {
@@ -753,7 +784,7 @@ class VideoModalPlayerController {
 
   #cleanupMedia() {
     this.#hideUpNext();
-    this.#clearHash();
+    this.#leaveHistoryEntry();
     if (this.#video) {
       this.#video.pause();
       this.#video.removeAttribute('src');
@@ -805,42 +836,36 @@ class MediaPreviewController {
   init() {
     if (!this.#cards.length) return;
 
+    // Posters load lazily as cards approach the viewport. Film data is never
+    // fetched here: touch devices only ever show the poster, and hover-capable
+    // devices fetch a film the first time the pointer reaches its card.
     this.#observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const video = entry.target;
-          const card = video.closest('.reel-card');
-          const src = video.dataset.src;
-          if (src && !video.src) {
-            video.preload = 'metadata';
-            video.src = src;
-            video.classList.add('has-src');
-            const seekTime = parseFloat(card?.dataset.seekTime || '1.0');
-            video.addEventListener('loadedmetadata', () => {
-              if (video.currentTime === 0) {
-                video.currentTime = seekTime;
-              }
-            }, { once: true });
-          }
-          this.#observer.unobserve(video);
-        }
+        if (!entry.isIntersecting) return;
+        const video = entry.target;
+        const poster = video.dataset.poster;
+        if (poster && !video.getAttribute('poster')) video.setAttribute('poster', poster);
+        video.classList.add('has-poster');
+        this.#observer.unobserve(video);
       });
     }, {
       threshold: 0,
       rootMargin: '400px 0px 400px 0px'
     });
 
-    const canScrub = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
     this.#cards.forEach(card => {
       const video = card.querySelector('.reel-video');
       const dataSrc = video?.dataset.src;
 
-      if (video && dataSrc) {
-        this.#observer.observe(video);
-        if (canScrub) this.#attachScrub(card, video);
+      if (video) this.#observer.observe(video);
+
+      if (video && dataSrc && canHover) {
+        this.#attachScrub(card, video);
 
         card.addEventListener('mouseenter', () => {
+          this.#loadSource(card, video);
           if (this.#currentlyPlaying && this.#currentlyPlaying !== video) {
             this.#pauseCurrent();
           }
@@ -854,7 +879,7 @@ class MediaPreviewController {
             this.#currentlyPlaying = null;
           }
           const seekTime = parseFloat(card.dataset.seekTime || '1.0');
-          setTimeout(() => { video.currentTime = seekTime; }, 200);
+          setTimeout(() => { if (video.readyState > 0) video.currentTime = seekTime; }, 200);
         });
       }
 
@@ -872,6 +897,19 @@ class MediaPreviewController {
         }
       });
     });
+  }
+
+  /** Attaches the film the first time it is needed (hover-capable devices only) */
+  #loadSource(card, video) {
+    const src = video.dataset.src;
+    if (!src || video.getAttribute('src')) return;
+    const seekTime = parseFloat(card?.dataset.seekTime || '1.0');
+    video.addEventListener('loadedmetadata', () => {
+      if (video.currentTime === 0 && video.paused) video.currentTime = seekTime;
+    }, { once: true });
+    video.preload = 'auto';
+    video.src = src;
+    video.classList.add('has-src');
   }
 
   #attachScrub(card, video) {
@@ -1172,7 +1210,9 @@ class HeroLoopController {
   init() {
     if (!this.#heroEl || !this.#video) return;
 
-    this.#isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Reduced motion and data-saver both start on the still poster; Play opts in
+    this.#isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      || navigator.connection?.saveData === true;
 
     if (this.#isReducedMotion) {
       // Drop autoplay and reload so the element falls back to its poster frame

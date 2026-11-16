@@ -1292,10 +1292,12 @@ section {
   --media-zoom: 1.23;
 }
 
+.reel-video.has-poster,
 .reel-video.has-src {
   opacity: 1;
 }
 
+.reel-card:hover .reel-video.has-poster,
 .reel-card:hover .reel-video.has-src {
   transform: translateZ(0) scale(calc(var(--media-zoom, 1) * 1.04));
 }
@@ -1766,6 +1768,63 @@ dialog#video-modal.video-modal--portrait {
 .modal-nav-btn:focus-visible {
   outline: 2px solid var(--ember);
   outline-offset: 2px;
+}
+
+/* Phone held sideways: the film takes the full height and the title moves
+   to a slim column on the right, so nothing is cropped or pushed off screen */
+@media (orientation: landscape) and (max-height: 540px) {
+  dialog#video-modal,
+  dialog#video-modal.video-modal--portrait {
+    width: fit-content;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .modal-dialog-content {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .modal-video-container,
+  .video-modal--portrait .modal-video-container {
+    flex: 0 1 auto;
+    max-height: none;
+  }
+
+  .modal-video-container video,
+  .video-modal--portrait .modal-video-container video {
+    width: auto;
+    max-width: calc(100vw - 24px - 200px);
+    height: calc(100dvh - 26px);
+    max-height: none;
+  }
+
+  .modal-info,
+  .video-modal--portrait .modal-info {
+    flex: 0 0 200px;
+    width: 200px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-top: 0;
+    border-left: 1px solid var(--line);
+  }
+
+  .modal-transport {
+    margin-left: 0;
+    gap: var(--space-2);
+  }
+
+  .modal-nav-btn {
+    padding: var(--space-2) var(--space-3);
+  }
+  .modal-title {
+    font-size: var(--text-lg);
+    overflow-wrap: anywhere;
+  }
 }
 
 /* ==========================================================================

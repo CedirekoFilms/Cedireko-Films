@@ -43,21 +43,26 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 ├── .gitignore              # macOS artifacts and temporary exclusions
 │
 ├── assets/                 # Brand assets and imagery
-│   ├── CEDIREKO PNG.png    # Studio wordmark and badge logo mark
+│   ├── CEDIREKO PNG.png    # Studio logo mark master (2000px, used by JSON-LD)
+│   ├── CEDIREKO-mark-64.png  # Header logo (2x of 32px)
+│   ├── CEDIREKO-icon-32.png  # Favicon (mark on --void)
+│   ├── CEDIREKO-icon-180.png # Apple touch icon
 │   ├── IMG_9987.jpeg       # Raw master director founder portrait (preserved)
 │   ├── founder-portrait.webp # Web-optimized 2x retina portrait (WebP)
 │   ├── founder-portrait.jpg  # Web-optimized fallback portrait (JPEG)
 │   ├── og-cover.jpg        # Open Graph / Twitter Card social share banner
-│   └── posters/            # Lightweight video poster frames (zero black thumbnails)
-│       ├── veronikka.jpg
-│       ├── ea.jpg
-│       ├── ficomana_cyra.jpg
-│       ├── ficomana_breanna.jpg
-│       └── ficomana_leigh.jpg
+│   └── posters/            # Poster frames: JPEG masters + WebP copies used by the page (lazy-loaded)
+│       ├── veronikka.jpg / .webp
+│       ├── ea.jpg / .webp
+│       ├── ficomana_cyra.jpg / .webp
+│       ├── ficomana_breanna.jpg / .webp
+│       ├── ficomana_leigh.jpg / .webp
+│       └── hero-loop.jpg / .webp
 │
 ├── projects/               # Authentic portfolio video files
 │   ├── VERONIKKA_REVISED_3.mp4
-│   ├── hero-loop.mp4       # 12 s, 720p silent hero montage (2.9 MB)
+│   ├── hero-loop.mp4       # 12 s, 720p silent hero montage (2.9 MB, desktop)
+│   ├── hero-loop-540.mp4   # Same loop at 540p for phones (1.3 MB)
 │   ├── EA_FINALCUT.mp4
 │   ├── FICOMANA_CYRA_2_1.mp4
 │   ├── FICOMANA_CYRA_2_1_web.mp4 # Web derivative (PSNR 47.76 dB, SSIM 0.9929)

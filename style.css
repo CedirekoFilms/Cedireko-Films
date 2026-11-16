@@ -141,13 +141,35 @@ section[id], footer[id] {
 .grain {
   position: fixed;
   inset: 0;
+  overflow: hidden;
   pointer-events: none;
   z-index: var(--z-grain);
   opacity: 0.04;
   mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   transform: translateZ(0);
   backface-visibility: hidden;
+}
+
+/* The texture sits on an oversized layer that jumps to a new offset 8 times a
+   second, so the grain lives like film stock instead of sitting frozen */
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: -120px;
+  animation: grain-jitter 1s steps(1, end) infinite;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes grain-jitter {
+  0%     { transform: translate(0, 0); }
+  12.5%  { transform: translate(-37px, 21px); }
+  25%    { transform: translate(18px, -44px); }
+  37.5%  { transform: translate(-63px, -12px); }
+  50%    { transform: translate(41px, 57px); }
+  62.5%  { transform: translate(-9px, -71px); }
+  75%    { transform: translate(66px, 8px); }
+  87.5%  { transform: translate(-48px, 39px); }
+  100%   { transform: translate(0, 0); }
 }
 
 main, footer {
@@ -626,6 +648,67 @@ p {
 .stagger-item:nth-child(3) { transition-delay: 0.20s; }
 .stagger-item:nth-child(4) { transition-delay: 0.28s; }
 .stagger-item:nth-child(5) { transition-delay: 0.36s; }
+
+/* Reel cards open the way the hero does: through a letterbox. The frame opens
+   from a slit to full height while the footage settles from a slight push-in,
+   then the slate text rises. The animation fills backwards only, so nothing
+   lingers (no clip-path left on the card to clip its hover shadow). Cards
+   brought back by a filter replay it, because display:none resets animations. */
+.reel-grid .reel-card.stagger-item {
+  opacity: 0;
+  transform: none;
+  transition-delay: 0s;
+}
+
+.reel-grid.is-visible .reel-card.stagger-item {
+  opacity: 1;
+  animation: card-letterbox 1s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s) backwards;
+}
+
+.reel-grid .reel-card.stagger-item:hover {
+  transform: translateY(-2px);
+}
+
+.reel-grid.is-visible .reel-card .reel-video,
+.reel-grid.is-visible .reel-card .reel-thumb {
+  animation: card-push 1.4s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0s) backwards;
+}
+
+.reel-grid.is-visible .reel-card .reel-meta,
+.reel-grid.is-visible .reel-card .reel-tc {
+  animation: card-slate 0.7s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--reveal-delay, 0s) + 0.45s) backwards;
+}
+
+.reel-grid .reel-card:nth-child(1) { --reveal-delay: 0s; }
+.reel-grid .reel-card:nth-child(2) { --reveal-delay: 0.12s; }
+.reel-grid .reel-card:nth-child(4) { --reveal-delay: 0.08s; }
+.reel-grid .reel-card:nth-child(5) { --reveal-delay: 0.2s; }
+.reel-grid .reel-card:nth-child(6) { --reveal-delay: 0.32s; }
+
+@keyframes card-letterbox {
+  from { clip-path: inset(50% 0 50% 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes card-push {
+  from { scale: 1.14; }
+  to   { scale: 1; }
+}
+
+@keyframes card-slate {
+  from { opacity: 0; translate: 0 10px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+/* About portrait: a rack focus, soft to sharp, as the section arrives */
+.about-grid.is-visible .about-placeholder-img {
+  animation: rack-focus 1.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards;
+}
+
+@keyframes rack-focus {
+  from { filter: blur(14px) brightness(0.85); scale: 1.06; }
+  to   { filter: blur(0) brightness(1); scale: 1; }
+}
 
 /* ==========================================================================
    CINEMATIC HERO SECTION
@@ -1513,6 +1596,35 @@ dialog#video-modal.video-modal--portrait {
   background: var(--void);
 }
 
+/* Close transition: a still of the current frame shrinks back into its card
+   (VideoModalPlayerController). The dialog itself closes synchronously. */
+.modal-ghost,
+.modal-ghost-backdrop {
+  position: fixed;
+  pointer-events: none;
+  z-index: var(--z-modal);
+}
+
+.modal-ghost-backdrop {
+  inset: 0;
+  background: rgba(14, 2, 4, 0.85);
+}
+
+.modal-ghost {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--frame);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85);
+}
+
+.modal-ghost img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .modal-close {
   position: absolute;
   top: var(--space-3);
@@ -1968,6 +2080,18 @@ dialog#video-modal.video-modal--portrait {
   .reveal, .stagger-item {
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  .grain::before,
+  .reel-grid .reel-card,
+  .reel-grid .reel-card .reel-video,
+  .reel-grid .reel-card .reel-thumb,
+  .reel-grid .reel-card .reel-meta,
+  .reel-grid .reel-card .reel-tc,
+  .about-placeholder-img,
+  .modal-ghost,
+  .modal-ghost-backdrop {
+    animation: none !important;
   }
 
   .letterbox {

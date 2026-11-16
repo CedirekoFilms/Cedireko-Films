@@ -369,7 +369,43 @@ class ReelFilterController {
 
   setView(view, activeBtn) {
     if (!this.#grid) return;
+
+    // FLIP: remember where everything was, switch the view, then glide each
+    // item from its old place to its new one. Items coming back into view replay
+    // their letterbox reveal in CSS; the state change itself stays synchronous.
+    const animate = this.#grid.classList.contains('is-visible')
+      && this.#grid.dataset.view !== view
+      && typeof this.#grid.animate === 'function'
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const items = Array.from(this.#grid.children);
+    const before = animate ? new Map(items.map(el => [el, el.getBoundingClientRect()])) : null;
+
     this.#grid.dataset.view = view;
+
+    if (animate) {
+      const easing = 'cubic-bezier(0.16, 1, 0.3, 1)';
+      items.forEach(el => {
+        const was = before.get(el);
+        const now = el.getBoundingClientRect();
+        if (!now.width) return; // filtered out
+        if (!was.width) {
+          // returning item that has no letterbox reveal of its own (the series header)
+          if (!el.classList.contains('reel-card')) {
+            el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 420, easing });
+          }
+          return;
+        }
+        const dx = was.left - now.left;
+        const dy = was.top - now.top;
+        const sx = was.width / now.width;
+        const sy = was.height / now.height;
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
+        el.animate([
+          { transformOrigin: 'top left', transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
+          { transformOrigin: 'top left', transform: 'none' }
+        ], { duration: 560, easing });
+      });
+    }
 
     this.#buttons.forEach(btn => {
       const isSelected = btn === activeBtn || (!activeBtn && btn.dataset.view === view);
@@ -405,6 +441,7 @@ class VideoModalPlayerController {
   #isReducedMotion;
   #historyEntry = false;
   #pendingPops = 0;
+  #closeShot = null;
 
   constructor() {
     this.#dialog = document.getElementById('video-modal');
@@ -773,6 +810,7 @@ class VideoModalPlayerController {
   close() {
     if (!this.#dialog || !this.#dialog.open) return;
 
+    this.#captureCloseShot();
     if (typeof this.#dialog.close === 'function') {
       this.#dialog.close();
     } else {
@@ -782,7 +820,95 @@ class VideoModalPlayerController {
     this.#cleanupMedia();
   }
 
+  /**
+   * Close transition, part 1: while the viewer is still on screen, remember where
+   * the film sits and take a still of the current frame (or the poster).
+   */
+  #captureCloseShot() {
+    if (this.#closeShot || this.#isReducedMotion || !this.#dialog?.open) return;
+    if (this.#currentIndex < 0 || typeof document.body.animate !== 'function') return;
+    const frame = this.#video?.closest('.modal-video-container') || this.#dialog;
+    const from = frame.getBoundingClientRect();
+    if (!from.width || !from.height) return;
+
+    let image = '';
+    const v = this.#video;
+    try {
+      if (v && v.readyState >= 2 && v.videoWidth) {
+        const scale = Math.min(1, 640 / v.videoWidth);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(v.videoWidth * scale);
+        canvas.height = Math.round(v.videoHeight * scale);
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+        // A near-black frame (a fade, the first second of a film) reads as a hole; use the poster instead
+        const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let sum = 0;
+        let n = 0;
+        for (let i = 0; i < px.length; i += 4 * 97) { sum += px[i] + px[i + 1] + px[i + 2]; n += 3; }
+        if (n && sum / n > 18) image = canvas.toDataURL('image/jpeg', 0.72);
+      }
+    } catch (err) {
+      image = '';
+    }
+    if (!image) image = v?.getAttribute('poster') || '';
+
+    this.#closeShot = { from, card: this.#cards[this.#currentIndex], image };
+  }
+
+  /**
+   * Close transition, part 2: the still shrinks back into the card it came from
+   * (or settles and fades if that card is hidden or off screen). Faster than the
+   * open (420 ms vs 560 ms), as exits should be.
+   */
+  #playCloseShot() {
+    const shot = this.#closeShot;
+    this.#closeShot = null;
+    if (!shot) return;
+
+    const easing = 'cubic-bezier(0.65, 0, 0.35, 1)';
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-ghost-backdrop';
+    const ghost = document.createElement('div');
+    ghost.className = 'modal-ghost';
+    if (shot.image) {
+      const img = document.createElement('img');
+      img.src = shot.image;
+      img.alt = '';
+      ghost.appendChild(img);
+    }
+    const { from } = shot;
+    Object.assign(ghost.style, {
+      left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`
+    });
+    document.body.append(backdrop, ghost);
+
+    const to = shot.card?.getBoundingClientRect();
+    const cardOnScreen = to && to.width > 0 && to.bottom > 0 && to.top < window.innerHeight;
+    // The still travels to the card on an ease-in-out curve, then dissolves into it
+    let fade;
+    if (cardOnScreen) {
+      ghost.animate([
+        { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px` },
+        { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px` }
+      ], { duration: 420, easing, fill: 'forwards' });
+      fade = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, delay: 380, easing: 'linear', fill: 'forwards' });
+    } else {
+      fade = ghost.animate([
+        { transform: 'none', opacity: 1 },
+        { transform: 'scale(0.96)', opacity: 0 }
+      ], { duration: 300, easing, fill: 'forwards' });
+    }
+    backdrop.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: 'ease-out', fill: 'forwards' });
+    const remove = () => { ghost.remove(); backdrop.remove(); };
+    fade.onfinish = remove;
+    fade.oncancel = remove;
+    window.setTimeout(remove, 800); // safety net if the animation is interrupted
+  }
+
   #cleanupMedia() {
+    this.#captureCloseShot(); // Esc fires 'cancel' while the dialog is still open
+    this.#playCloseShot();
     this.#hideUpNext();
     this.#leaveHistoryEntry();
     if (this.#video) {

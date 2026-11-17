@@ -69,7 +69,8 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 │   ├── BREANNA_1.mp4
 │   ├── BREANNA_1_web.mp4   # Web derivative (PSNR 47.84 dB, SSIM 0.9924)
 │   ├── FICOMANA_LEIGH.mp4
-│   └── FICOMANA_LEIGH_web.mp4 # Web-optimized derivative (43% bandwidth savings)
+│   ├── FICOMANA_LEIGH_web.mp4 # Web-optimized derivative (43% bandwidth savings)
+│   └── previews/           # 3 s silent card loops for touch screens (140-290 KB each)
 │
 └── tests/                  # Headless Chrome DevTools Protocol (CDP) test suite
     ├── run_tests.js        # Test runner and CLI entry point

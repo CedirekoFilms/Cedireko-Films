@@ -114,7 +114,11 @@
       <div class="mobile-nav__backdrop" aria-hidden="true"></div>
       <nav class="mobile-nav__panel" aria-label="Mobile navigation menu" tabindex="-1">
         <div class="mobile-nav__header">
-          <button type="button" 
+          <span class="mobile-nav__brand" aria-hidden="true">
+            <img src="assets/CEDIREKO-mark-64.png" alt="" class="site-header__logo" width="32" height="32" decoding="async">
+            <span class="site-header__brand-text wordmark">CEDIREKO FILMS</span>
+          </span>
+          <button type="button"
                   class="mobile-nav__close" 
                   id="mobile-nav-close" 
                   aria-label="Close navigation menu">
@@ -219,10 +223,16 @@
           <span class="eyebrow" aria-hidden="true">SC.01 &ndash; SC.05</span>
           <h2 id="reel-title" class="section-title">Selected Work</h2>
         </div>
+        <div class="reel-actions">
         <div class="reel-toggle" role="tablist" aria-label="Reel orientation">
           <button type="button" class="reel-toggle-btn is-active" data-view="all" role="tab" aria-selected="true" id="tab-all" aria-controls="reel-grid">All</button>
           <button type="button" class="reel-toggle-btn" data-view="landscape" role="tab" aria-selected="false" id="tab-films" aria-controls="reel-grid">Films</button>
           <button type="button" class="reel-toggle-btn" data-view="portrait" role="tab" aria-selected="false" id="tab-vertical" aria-controls="reel-grid">Vertical</button>
+        </div>
+          <button type="button" class="reel-playall" id="reel-play-all">
+            <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M6 4l14 8-14 8V4z" fill="currentColor"/></svg>
+            <span>Play all</span>
+          </button>
         </div>
       </div>
 
@@ -232,7 +242,7 @@
         <!-- Project 01: Veronikka Rebranding -->
         <div class="reel-card stagger-item" data-orientation="landscape" data-scene="SC.01" data-film="veronikka" data-seek-time="1.0" tabindex="0" role="button" aria-label="Play Veronikka Rebranding (Advertisement)">
           <div class="reel-thumb" style="background:linear-gradient(150deg,#5c1420,#2a0509 70%);"></div>
-          <video class="reel-video" data-src="projects/VERONIKKA_REVISED_3.mp4" data-poster="assets/posters/veronikka.webp" muted loop playsinline preload="none"></video>
+          <video class="reel-video" data-src="projects/VERONIKKA_REVISED_3.mp4" data-preview="projects/previews/veronikka-preview.mp4" data-poster="assets/posters/veronikka.webp" muted loop playsinline preload="none"></video>
           <div class="reel-tc"><span>01:29</span></div>
           <div class="play-ring" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l14 8-14 8V4z"/></svg></div>
           <div class="reel-meta">
@@ -247,7 +257,7 @@
         <!-- Project 02: EA Performance -->
         <div class="reel-card stagger-item" data-orientation="landscape" data-scene="SC.02" data-film="ea" data-seek-time="2.0" tabindex="0" role="button" aria-label="Play EA Performance (Music Video)">
           <div class="reel-thumb" style="background:linear-gradient(150deg,#7a2233,#3c0008 70%);"></div>
-          <video class="reel-video" data-src="projects/EA_FINALCUT.mp4" data-poster="assets/posters/ea.webp" muted loop playsinline preload="none"></video>
+          <video class="reel-video" data-src="projects/EA_FINALCUT.mp4" data-preview="projects/previews/ea-preview.mp4" data-poster="assets/posters/ea.webp" muted loop playsinline preload="none"></video>
           <div class="reel-tc"><span>04:41</span></div>
           <div class="play-ring" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l14 8-14 8V4z"/></svg></div>
           <div class="reel-meta">
@@ -268,10 +278,13 @@
           </div>
         </div>
 
+        <!-- FICO MANA row: a swipe row on phones; display: contents (plain grid items) from 640px -->
+        <div class="reel-series-row" data-series="ficomana">
+
         <!-- Project 03: FICO MANA — Cyra -->
         <div class="reel-card stagger-item" data-orientation="portrait" data-series="ficomana" data-scene="SC.03" data-film="cyra" data-seek-time="1.5" tabindex="0" role="button" aria-label="Play Fico Mana Cyra (Vertical Series Pt. 1)">
           <div class="reel-thumb" style="background:linear-gradient(150deg,#6b1c28,#2a0509 70%);"></div>
-          <video class="reel-video" data-src="projects/FICOMANA_CYRA_2_1_web.mp4" data-poster="assets/posters/ficomana_cyra.webp" muted loop playsinline preload="none"></video>
+          <video class="reel-video" data-src="projects/FICOMANA_CYRA_2_1_web.mp4" data-preview="projects/previews/cyra-preview.mp4" data-poster="assets/posters/ficomana_cyra.webp" muted loop playsinline preload="none"></video>
           <div class="reel-tc"><span>00:27</span></div>
           <div class="play-ring" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l14 8-14 8V4z"/></svg></div>
           <div class="reel-meta">
@@ -286,7 +299,7 @@
         <!-- Project 04: FICO MANA — Breanna -->
         <div class="reel-card stagger-item" data-orientation="portrait" data-series="ficomana" data-scene="SC.04" data-film="breanna" data-seek-time="1.5" tabindex="0" role="button" aria-label="Play Fico Mana Breanna (Vertical Series Pt. 2)">
           <div class="reel-thumb" style="background:linear-gradient(150deg,#6b1c28,#2a0509 70%);"></div>
-          <video class="reel-video" data-src="projects/BREANNA_1_web.mp4" data-poster="assets/posters/ficomana_breanna.webp" muted loop playsinline preload="none"></video>
+          <video class="reel-video" data-src="projects/BREANNA_1_web.mp4" data-preview="projects/previews/breanna-preview.mp4" data-poster="assets/posters/ficomana_breanna.webp" muted loop playsinline preload="none"></video>
           <div class="reel-tc"><span>00:34</span></div>
           <div class="play-ring" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l14 8-14 8V4z"/></svg></div>
           <div class="reel-meta">
@@ -301,7 +314,7 @@
         <!-- Project 05: FICO MANA — Leigh -->
         <div class="reel-card stagger-item" data-orientation="portrait" data-series="ficomana" data-scene="SC.05" data-film="leigh" data-seek-time="1.5" tabindex="0" role="button" aria-label="Play Fico Mana Leigh (Vertical Series Pt. 3)">
           <div class="reel-thumb" style="background:linear-gradient(150deg,#6b1c28,#2a0509 70%);"></div>
-          <video class="reel-video" data-src="projects/FICOMANA_LEIGH_web.mp4" data-poster="assets/posters/ficomana_leigh.webp" muted loop playsinline preload="none"></video>
+          <video class="reel-video" data-src="projects/FICOMANA_LEIGH_web.mp4" data-preview="projects/previews/leigh-preview.mp4" data-poster="assets/posters/ficomana_leigh.webp" muted loop playsinline preload="none"></video>
           <div class="reel-tc"><span>00:45</span></div>
           <div class="play-ring" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l14 8-14 8V4z"/></svg></div>
           <div class="reel-meta">
@@ -311,6 +324,8 @@
             </div>
             <h3 class="reel-title">LEIGH</h3>
           </div>
+        </div>
+
         </div>
 
       </div>

@@ -490,7 +490,7 @@ p {
   border-bottom: 1px solid var(--color-border);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  padding: calc(var(--header-height-mobile) + var(--space-4)) var(--space-6) var(--space-7);
+  padding: 0 var(--space-4) var(--space-7);
   display: flex;
   flex-direction: column;
   transform: translateY(-100%);
@@ -514,10 +514,25 @@ p {
 }
 
 .mobile-nav__header {
+  /* mirrors the header row so the close button sits exactly where the menu button was */
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--header-height-mobile);
   margin-bottom: var(--space-5);
+}
+
+.mobile-nav__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--header-text);
+}
+
+/* The drawer brings its own close button; the menu button underneath is inert while it is open */
+.site-header__burger[aria-expanded="true"] {
+  visibility: hidden;
 }
 
 .mobile-nav__close {
@@ -679,11 +694,11 @@ p {
   animation: card-slate 0.7s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--reveal-delay, 0s) + 0.45s) backwards;
 }
 
-.reel-grid .reel-card:nth-child(1) { --reveal-delay: 0s; }
-.reel-grid .reel-card:nth-child(2) { --reveal-delay: 0.12s; }
-.reel-grid .reel-card:nth-child(4) { --reveal-delay: 0.08s; }
-.reel-grid .reel-card:nth-child(5) { --reveal-delay: 0.2s; }
-.reel-grid .reel-card:nth-child(6) { --reveal-delay: 0.32s; }
+.reel-grid .reel-card[data-film="veronikka"] { --reveal-delay: 0s; }
+.reel-grid .reel-card[data-film="ea"] { --reveal-delay: 0.12s; }
+.reel-grid .reel-card[data-film="cyra"] { --reveal-delay: 0.08s; }
+.reel-grid .reel-card[data-film="breanna"] { --reveal-delay: 0.2s; }
+.reel-grid .reel-card[data-film="leigh"] { --reveal-delay: 0.32s; }
 
 @keyframes card-letterbox {
   from { clip-path: inset(50% 0 50% 0); }
@@ -746,17 +761,19 @@ p {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.32;
-  filter: saturate(0.85) contrast(1.1);
+  opacity: 0.62;
+  filter: saturate(0.9) contrast(1.05);
   transform: scale(1.02);
 }
 
 .hero__video-overlay {
   position: absolute;
   inset: 0;
+  /* dark only where the type sits (a pool behind the title) and at the edges; the footage shows elsewhere */
   background:
-    radial-gradient(ellipse 90% 75% at 50% 50%, rgba(60, 0, 8, 0.45) 0%, rgba(18, 2, 5, 0.88) 75%),
-    linear-gradient(to bottom, rgba(18, 2, 5, 0.75) 0%, transparent 25%, transparent 75%, rgba(18, 2, 5, 0.95) 100%);
+    radial-gradient(ellipse 58% 34% at 50% 50%, rgba(24, 3, 7, 0.62) 0%, rgba(24, 3, 7, 0.3) 62%, rgba(24, 3, 7, 0) 100%),
+    radial-gradient(ellipse 120% 100% at 50% 50%, rgba(18, 2, 5, 0) 50%, rgba(18, 2, 5, 0.72) 100%),
+    linear-gradient(to bottom, rgba(18, 2, 5, 0.6) 0%, rgba(18, 2, 5, 0) 22%, rgba(18, 2, 5, 0) 68%, rgba(18, 2, 5, 0.92) 100%);
 }
 
 /* Bang Motion: Anamorphic Horizontal Flare Sweep */
@@ -1168,6 +1185,47 @@ section {
   flex-wrap: wrap;
 }
 
+/* Filter tabs + Play all */
+.reel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Play all: a quiet text action beside the tabs (same type as the tabs, ember on hover) */
+.reel-playall {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bone-dim);
+  background: transparent;
+  border: none;
+  padding: var(--space-2) var(--space-3);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease);
+}
+
+.reel-playall svg {
+  color: var(--ember);
+}
+
+.reel-playall:hover {
+  color: var(--ember-bright);
+}
+
+.reel-playall:focus-visible {
+  outline: 2px solid var(--ember);
+  outline-offset: 2px;
+}
+
 /* Unified Filter Tablist Component */
 .reel-toggle {
   display: inline-flex;
@@ -1314,6 +1372,40 @@ section {
   }
 }
 
+/* FICO MANA row: from 640px its cards are ordinary grid items. On phones the three
+   vertical films sit side by side in a row you swipe, the next one peeking in, so the
+   series reads as one set. The row scrolls on its own; the page never scrolls sideways. */
+.reel-series-row {
+  display: contents;
+}
+
+@media (max-width: 639px) {
+  .reel-series-row {
+    display: flex;
+    gap: var(--space-4);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--section-padding-x);
+    margin-inline: calc(-1 * var(--section-padding-x));
+    padding-inline: var(--section-padding-x);
+    scrollbar-width: none;
+  }
+
+  .reel-series-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .reel-series-row > .reel-card {
+    flex: 0 0 76%;
+    scroll-snap-align: start;
+  }
+}
+
+.reel-grid[data-view="landscape"] .reel-series-row {
+  display: none;
+}
+
 /* Project Card Architecture */
 .reel-card {
   position: relative;
@@ -1395,6 +1487,12 @@ section {
   pointer-events: none;
 }
 
+/* Vertical films carry the studio watermark at the bottom centre; a deeper, longer
+   shade there keeps it from reading as part of the title */
+.reel-card[data-orientation="portrait"]::before {
+  background: linear-gradient(180deg, rgba(24, 3, 7, 0.25) 0%, rgba(24, 3, 7, 0) 28%, rgba(24, 3, 7, 0) 58%, rgba(24, 3, 7, 0.86) 82%, rgba(24, 3, 7, 0.97) 100%);
+}
+
 /* Duration Timecode Badge */
 .reel-tc {
   position: absolute;
@@ -1406,8 +1504,10 @@ section {
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
   color: var(--bone-dim);
-  /* keeps the duration legible on bright frames (e.g. EA's daylight wall) */
-  text-shadow: 0 1px 3px rgba(24, 3, 7, 0.9), 0 0 10px rgba(24, 3, 7, 0.6);
+  /* a small dark plate, like a monitor readout, keeps it legible on bright frames */
+  padding: 2px 6px;
+  background: rgba(24, 3, 7, 0.62);
+  border-radius: var(--radius);
   z-index: 2;
   pointer-events: none;
 }
@@ -1884,6 +1984,69 @@ dialog#video-modal.video-modal--portrait {
 
 /* Phone held sideways: the film takes the full height and the title moves
    to a slim column on the right, so nothing is cropped or pushed off screen */
+/* Phones held upright: the viewer fills the screen. The film runs edge to edge,
+   the close button sits above it (not on the footage), title and Prev/Next below. */
+@media (max-width: 639px) and (orientation: portrait) {
+  dialog#video-modal,
+  dialog#video-modal.video-modal--portrait {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--frame);
+  }
+
+  .modal-dialog-content {
+    height: 100%;
+    background: var(--frame);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .modal-close {
+    position: static;
+    flex: none;
+    align-self: flex-end;
+    margin: calc(var(--space-2) + env(safe-area-inset-top, 0px)) var(--space-3) var(--space-2);
+  }
+
+  .modal-video-container,
+  .video-modal--portrait .modal-video-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .modal-video-container video {
+    max-height: 100%;
+  }
+
+  .video-modal--portrait .modal-video-container video {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+  }
+
+  .modal-info,
+  .video-modal--portrait .modal-info {
+    flex: none;
+    padding: var(--space-4);
+  }
+
+  .modal-transport {
+    width: 100%;
+  }
+
+  .modal-transport .modal-nav-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 @media (orientation: landscape) and (max-height: 540px) {
   dialog#video-modal,
   dialog#video-modal.video-modal--portrait {

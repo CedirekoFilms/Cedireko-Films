@@ -377,7 +377,13 @@ class ReelFilterController {
       && this.#grid.dataset.view !== view
       && typeof this.#grid.animate === 'function'
       && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const items = Array.from(this.#grid.children);
+    // The FICO MANA row is display: contents from 640px (its cards are the grid items)
+    // and a real swipe row on phones (it moves as one piece)
+    const items = Array.from(this.#grid.children).flatMap(el => (
+      el.classList.contains('reel-series-row') && getComputedStyle(el).display === 'contents'
+        ? Array.from(el.children)
+        : [el]
+    ));
     const before = animate ? new Map(items.map(el => [el, el.getBoundingClientRect()])) : null;
 
     this.#grid.dataset.view = view;
@@ -442,6 +448,7 @@ class VideoModalPlayerController {
   #historyEntry = false;
   #pendingPops = 0;
   #closeShot = null;
+  #navDirection = 0;
 
   constructor() {
     this.#dialog = document.getElementById('video-modal');
@@ -589,6 +596,31 @@ class VideoModalPlayerController {
       ['canplay', 'playing', 'pause', 'error', 'emptied'].forEach(type => this.#video.addEventListener(type, () => setLoading(false)));
     }
 
+    // Swipe across the film on a touch screen: left = next, right = previous.
+    // Touches that start on the bottom strip are left to the native timeline controls.
+    if (frame) {
+      let start = null;
+      frame.addEventListener('touchstart', (e) => {
+        const t = e.touches[0];
+        const rect = frame.getBoundingClientRect();
+        start = (e.touches.length === 1 && t.clientY < rect.bottom - 64)
+          ? { x: t.clientX, y: t.clientY, time: e.timeStamp }
+          : null;
+      }, { passive: true });
+      frame.addEventListener('touchend', (e) => {
+        if (!start) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - start.x;
+        const dy = t.clientY - start.y;
+        const quick = e.timeStamp - start.time < 700;
+        start = null;
+        if (quick && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+          this.navigate(dx < 0 ? 1 : -1);
+        }
+      }, { passive: true });
+      frame.addEventListener('touchcancel', () => { start = null; }, { passive: true });
+    }
+
     // Up next: when a film ends, offer the next one with a short countdown
     this.#video?.addEventListener('ended', () => this.#showUpNext());
     this.#upnext.play?.addEventListener('click', (e) => {
@@ -731,7 +763,9 @@ class VideoModalPlayerController {
     this.#hideUpNext();
     const total = this.#cards.length;
     const nextIndex = (this.#currentIndex + delta + total) % total;
+    this.#navDirection = Math.sign(delta);
     this.open(this.#cards[nextIndex]);
+    this.#navDirection = 0;
   }
 
   open(cardOrIndex, { fromHash = false } = {}) {
@@ -797,11 +831,13 @@ class VideoModalPlayerController {
       this.#closeBtn?.focus();
       this.#playOpenTransition(card);
     } else if (!this.#isReducedMotion) {
-      // Next / previous inside the viewer: a quick cut-in on the new film
-      this.#dialog.querySelector('.modal-video-container')?.animate(
-        [{ opacity: 0 }, { opacity: 1 }],
-        { duration: 320, easing: 'ease-out' }
-      );
+      // Next / previous inside the viewer: the new film pushes in from the side you
+      // are heading to (Next from the right, Prev from the left); other changes just fade
+      const shift = this.#navDirection * 56;
+      this.#dialog.querySelector('.modal-video-container')?.animate([
+        { opacity: 0, transform: `translateX(${shift}px)`, filter: shift ? 'blur(6px)' : 'none' },
+        { opacity: 1, transform: 'none', filter: 'none' }
+      ], { duration: 380, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
     }
 
     this.#syncHash(card, !wasOpen && !fromHash);
@@ -940,6 +976,9 @@ class MediaPreviewController {
   #videoModal;
   #observer;
   #currentlyPlaying;
+  #centreObserver = null;
+  #centreAreas = new Map();
+  #centreVideo = null;
 
   constructor(videoModal) {
     this.#cards = document.querySelectorAll('.reel-card');
@@ -950,6 +989,7 @@ class MediaPreviewController {
   }
 
   #pauseCurrent() {
+    this.#pauseCentre();
     if (this.#currentlyPlaying && !this.#currentlyPlaying.paused) {
       const card = this.#currentlyPlaying.closest('.reel-card');
       const seekTime = parseFloat(card?.dataset.seekTime || '1.0');
@@ -981,11 +1021,37 @@ class MediaPreviewController {
 
     const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
+    // Touch screens: the card in the middle of the screen plays a 3-second silent
+    // loop (data-preview, about 140-290 KB each). Off with reduced motion or Save-Data.
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const saveData = navigator.connection?.saveData === true;
+    if (!canHover && !reducedMotion && !saveData && 'IntersectionObserver' in window) {
+      this.#centreObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          const r = entry.intersectionRect;
+          this.#centreAreas.set(entry.target, entry.isIntersecting ? r.width * r.height : 0);
+        });
+        this.#playCentre();
+      }, {
+        rootMargin: '-30% 0px -30% 0px',
+        threshold: [0, 0.2, 0.4, 0.6, 0.8, 1]
+      });
+      document.getElementById('video-modal')?.addEventListener('close', () => {
+        window.setTimeout(() => this.#playCentre(), 450);
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) this.#pauseCentre();
+        else this.#playCentre();
+      });
+    }
+
     this.#cards.forEach(card => {
       const video = card.querySelector('.reel-video');
       const dataSrc = video?.dataset.src;
 
       if (video) this.#observer.observe(video);
+
+      if (video && this.#centreObserver) this.#centreObserver.observe(card);
 
       if (video && dataSrc && canHover) {
         this.#attachScrub(card, video);
@@ -1023,6 +1089,33 @@ class MediaPreviewController {
         }
       });
     });
+  }
+
+  /** Touch screens: play the loop of the card that covers most of the screen's middle band */
+  #playCentre() {
+    if (!this.#centreObserver || document.hidden) return;
+    if (document.getElementById('video-modal')?.open) return;
+    let best = null;
+    let bestArea = 0;
+    this.#centreAreas.forEach((area, card) => {
+      if (area > bestArea) { bestArea = area; best = card; }
+    });
+    const video = best?.querySelector('.reel-video');
+    if (video === this.#centreVideo && video && !video.paused) return;
+    this.#pauseCentre();
+    if (!video?.dataset.preview) return;
+    if (video.getAttribute('src') !== video.dataset.preview) {
+      video.preload = 'auto';
+      video.src = video.dataset.preview;
+      video.classList.add('has-src');
+    }
+    this.#centreVideo = video;
+    video.play().catch(() => {});
+  }
+
+  #pauseCentre() {
+    if (this.#centreVideo && !this.#centreVideo.paused) this.#centreVideo.pause();
+    this.#centreVideo = null;
   }
 
   /** Attaches the film the first time it is needed (hover-capable devices only) */
@@ -1418,6 +1511,13 @@ class PortfolioApp {
     this.mediaPreview = new MediaPreviewController(this.videoModal);
     this.opener = new CinematicOpenerController();
     this.heroLoop = new HeroLoopController();
+
+    // Play all: opens the first film in the current view; Up next carries on through the reel
+    document.getElementById('reel-play-all')?.addEventListener('click', () => {
+      const first = Array.from(document.querySelectorAll('.reel-card'))
+        .find(card => card.getBoundingClientRect().width > 0);
+      if (first) this.videoModal.open(first);
+    });
 
     this.isInitialized = true;
   }

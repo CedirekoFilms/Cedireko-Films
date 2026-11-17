@@ -39,6 +39,7 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 ├── 404.html                # Custom 404 error page for GitHub Pages
 ├── style.css               # Consolidated design tokens, responsive grid, and typography
 ├── script.js               # Modular OOP controllers (Header, Filter, Modal, Previews)
+├── vendor/gsap/            # GSAP 3.15.1 core, ScrollTrigger, SplitText (self-hosted, free licence): scroll-linked motion
 ├── README.md               # Architecture, project catalog, and verification guide
 ├── .gitignore              # macOS artifacts and temporary exclusions
 │

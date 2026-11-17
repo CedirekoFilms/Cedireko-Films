@@ -2558,25 +2558,26 @@ dialog#video-modal.video-modal--portrait {
 /* ==========================================================================
    SCROLL SHUTTER
    As the hero leaves, the letterbox bars close over it and the footage
-   pushes in slightly. Scroll-driven CSS only; browsers without
-   scroll timelines, and reduced-motion visitors, keep the static hero.
+   pushes in slightly. This CSS version is the fallback for when GSAP is
+   not loaded (ScrollMotionController runs the same move in every browser);
+   reduced-motion visitors keep the static hero.
    Uses the individual `scale` property so it composes with the bars'
    entrance `transform`.
    ========================================================================== */
 
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
-    .hero {
+    html:not(.gsap-motion) .hero {
       view-timeline: --hero-exit block;
     }
 
-    .hero.revealed .letterbox {
+    html:not(.gsap-motion) .hero.revealed .letterbox {
       animation: shutter-close linear both;
       animation-timeline: --hero-exit;
       animation-range: exit 0% exit 85%;
     }
 
-    .hero__video-media {
+    html:not(.gsap-motion) .hero__video-media {
       animation: camera-push linear both;
       animation-timeline: --hero-exit;
       animation-range: exit 0% exit 100%;
@@ -2592,6 +2593,115 @@ dialog#video-modal.video-modal--portrait {
 @keyframes camera-push {
   from { scale: 1; }
   to { scale: 1.12; }
+}
+
+/* ==========================================================================
+   GSAP SCROLL MOTION
+   ScrollMotionController (script.js) adds .gsap-motion to <html> when GSAP
+   is loaded and the visitor has not asked for reduced motion. The rules below
+   only hand the listed properties over to it; without the class, the CSS
+   versions above stay in charge. GSAP tweens custom properties here so its
+   values compose with the existing `transform` rules instead of replacing them.
+   ========================================================================== */
+
+/* Shutter: bars close and the footage pushes in as the hero scrolls out */
+.gsap-motion .hero.revealed .letterbox {
+  scale: 1 var(--shut, 1);
+}
+
+.gsap-motion .hero__video-media {
+  scale: var(--push, 1);
+}
+
+/* Wordmark opens up slightly as the shutter closes (--dx is measured per letter) */
+.gsap-motion .kinetic-letter {
+  translate: calc(var(--spread, 0) * var(--dx, 0px)) 0;
+}
+
+/* Pointer drift is eased by gsap.quickTo, so the CSS transition on `translate` goes */
+.gsap-motion .hero-inner {
+  transition:
+    opacity var(--reveal-duration) var(--ease) 0.3s,
+    transform var(--reveal-duration) var(--ease) 0.3s;
+}
+
+/* About: focus pulled by scroll. A soft copy of the portrait fades off the sharp one
+   (opacity only, so the blur is rasterised once instead of every frame). */
+.gsap-motion .about-grid .about-placeholder-img {
+  animation: none;
+}
+
+.about-focus-soft {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.about-focus-soft .about-placeholder-img {
+  filter: blur(14px) brightness(0.85);
+  scale: 1.2; /* past the blur's soft edge, so no halo shows inside the frame */
+}
+
+/* Section headings: the eyebrow rule draws in */
+.gsap-motion .section-head .eyebrow::before {
+  transform: scaleX(var(--rule, 1));
+  transform-origin: left center;
+}
+
+/* Reel cards: footage drifts inside its frame. 6% overscan gives the drift room. */
+.gsap-motion .reel-thumb,
+.gsap-motion .reel-video {
+  translate: 0 calc(var(--drift, 0) * 1%);
+}
+
+.gsap-motion .reel-thumb {
+  transform: translateZ(0) scale(1.06);
+}
+
+.gsap-motion .reel-card:hover .reel-thumb {
+  transform: translateZ(0) scale(1.1);
+}
+
+.gsap-motion .reel-video {
+  transform: translateZ(0) scale(calc(var(--media-zoom, 1) * 1.06));
+}
+
+.gsap-motion .reel-card:hover .reel-video.has-poster,
+.gsap-motion .reel-card:hover .reel-video.has-src {
+  transform: translateZ(0) scale(calc(var(--media-zoom, 1) * 1.1));
+}
+
+/* Page playhead: a hairline under the header, as long as the part of the page scrolled */
+.site-header__playhead {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--ember);
+  opacity: 0.7;
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+/* Closing credits: bars and lines follow the last stretch of scroll */
+.gsap-motion .site-footer .letterbox,
+.gsap-motion .site-footer:has(.footer-inner.is-visible) .letterbox {
+  transition: none;
+  transform: scaleY(var(--bars, 0));
+}
+
+.gsap-motion .footer-inner .stagger-item {
+  transition: none;
+}
+
+/* A focused link is never left faded out mid-roll */
+.gsap-motion .footer-contact:focus-within {
+  opacity: 1 !important;
+  transform: none !important;
 }
 
 /* Visually hidden, still exposed to assistive tech */

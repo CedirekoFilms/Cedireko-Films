@@ -1392,6 +1392,7 @@ class CinematicOpenerController {
   #classObserver;
   #blurRafId;
   #isReducedMotion;
+  #driftRenderer = null;
 
   constructor(options = {}) {
     this.options = Object.assign({
@@ -1566,11 +1567,21 @@ class CinematicOpenerController {
     const normY = (e.clientY / window.innerHeight) - 0.5;
     const px = this.options.parallaxPx;
 
+    if (this.#driftRenderer) {
+      this.#driftRenderer(normX * px, normY * px);
+      return;
+    }
+
     const inner = this.#heroEl.querySelector('.hero-inner');
     if (inner) {
       // Individual `translate` composes with the entrance `transform` instead of overwriting it
       inner.style.translate = `${(normX * px).toFixed(2)}px ${(normY * px).toFixed(2)}px`;
     }
+  }
+
+  /** Lets ScrollMotionController ease the pointer drift; pass null to go back to the CSS transition */
+  setDriftRenderer(renderer) {
+    this.#driftRenderer = typeof renderer === 'function' ? renderer : null;
   }
 
   destroy() {
@@ -1691,6 +1702,262 @@ class HeroLoopController {
 }
 
 /**
+ * ScrollMotionController
+ * Scroll-linked motion on GSAP + ScrollTrigger (+ SplitText), self-hosted in vendor/gsap.
+ * Runs only when GSAP is loaded and the visitor has not asked for reduced motion; it then
+ * adds `.gsap-motion` to <html>, which hands the affected properties over in style.css.
+ * Without it the CSS versions (and the plain page) stay as they are.
+ * - Hero: shutter (bars close, footage pushes in), wordmark opens up, eased pointer drift
+ * - About: focus pulled by scroll, portrait drift, bio rises line by line
+ * - Section headings: eyebrow rule draws, title rises from a mask
+ * - Reel: footage drifts inside each card
+ * - Header: page playhead
+ * - Footer: closing credits follow the scroll
+ */
+class ScrollMotionController {
+  #opener;
+  #mm;
+
+  constructor(opener = null) {
+    this.#opener = opener;
+    this.#mm = null;
+    this.init();
+  }
+
+  init() {
+    const { gsap, ScrollTrigger, SplitText } = window;
+    if (!gsap || !ScrollTrigger) return;
+    gsap.registerPlugin(ScrollTrigger);
+    if (SplitText) gsap.registerPlugin(SplitText);
+
+    this.#mm = gsap.matchMedia();
+    // Everything created in here is reverted by GSAP if the preference flips to "reduce"
+    this.#mm.add('(prefers-reduced-motion: no-preference)', () => {
+      const root = document.documentElement;
+      root.classList.add('gsap-motion');
+      const cleanups = [
+        this.#hero(gsap, ScrollTrigger),
+        this.#about(gsap, SplitText),
+        this.#headings(gsap, ScrollTrigger, SplitText),
+        this.#reel(gsap, ScrollTrigger),
+        this.#playhead(gsap),
+        this.#credits(gsap),
+        this.#keepMeasured(gsap, ScrollTrigger)
+      ];
+      return () => {
+        cleanups.forEach(fn => fn?.());
+        root.classList.remove('gsap-motion');
+      };
+    });
+  }
+
+  #hero(gsap, ScrollTrigger) {
+    const hero = document.getElementById('hero');
+    if (!hero) return null;
+    const bars = hero.querySelectorAll('.letterbox');
+    const video = hero.querySelector('.hero__video-media');
+    const wordmark = hero.querySelector('.kinetic-wordmark');
+    const letters = wordmark ? Array.from(wordmark.querySelectorAll('.kinetic-letter')) : [];
+
+    // Each letter moves out in proportion to its distance from the wordmark's centre.
+    // offsetLeft ignores transforms, so this is safe to re-measure mid-scroll.
+    const measure = () => {
+      if (!wordmark) return;
+      const centre = wordmark.offsetLeft + wordmark.offsetWidth / 2;
+      letters.forEach(letter => {
+        const dx = (letter.offsetLeft + letter.offsetWidth / 2 - centre) * 0.1;
+        letter.style.setProperty('--dx', `${dx.toFixed(2)}px`);
+      });
+    };
+    measure();
+    ScrollTrigger.addEventListener('refresh', measure);
+
+    const tl = gsap.timeline({
+      defaults: { ease: 'none' },
+      scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: 0.6 }
+    });
+    if (bars.length) tl.fromTo(bars, { '--shut': 1 }, { '--shut': 6.5, duration: 0.85 }, 0);
+    if (video) tl.fromTo(video, { '--push': 1 }, { '--push': 1.12, duration: 1 }, 0);
+    if (wordmark) tl.fromTo(wordmark, { '--spread': 0 }, { '--spread': 1, duration: 0.85 }, 0);
+
+    // Pointer drift: one reused tween per axis instead of a CSS transition
+    const inner = hero.querySelector('.hero-inner');
+    if (inner && this.#opener) {
+      const pos = { x: 0, y: 0 };
+      const render = () => { inner.style.translate = `${pos.x.toFixed(2)}px ${pos.y.toFixed(2)}px`; };
+      const xTo = gsap.quickTo(pos, 'x', { duration: 0.9, ease: 'power3.out', onUpdate: render });
+      const yTo = gsap.quickTo(pos, 'y', { duration: 0.9, ease: 'power3.out', onUpdate: render });
+      this.#opener.setDriftRenderer((x, y) => { xTo(x); yTo(y); });
+    }
+
+    return () => {
+      ScrollTrigger.removeEventListener('refresh', measure);
+      this.#opener?.setDriftRenderer(null);
+      letters.forEach(letter => letter.style.removeProperty('--dx'));
+      if (inner) inner.style.translate = '';
+    };
+  }
+
+  #about(gsap, SplitText) {
+    const frame = document.querySelector('.about-frame');
+    const img = frame?.querySelector('.about-placeholder-img');
+    let soft = null;
+    if (frame && img) {
+      // A blurred copy on top of the sharp portrait; only its opacity is animated
+      soft = document.createElement('div');
+      soft.className = 'about-focus-soft';
+      soft.setAttribute('aria-hidden', 'true');
+      const copy = (img.closest('picture') || img).cloneNode(true);
+      const copyImg = copy.matches('img') ? copy : copy.querySelector('img');
+      if (copyImg) copyImg.alt = '';
+      soft.appendChild(copy);
+      frame.appendChild(soft);
+
+      gsap.timeline({
+        defaults: { ease: 'none' },
+        scrollTrigger: { trigger: frame, start: 'top 90%', end: 'center 55%', scrub: 0.6 }
+      })
+        .fromTo(soft, { opacity: 1 }, { opacity: 0 }, 0)
+        .fromTo(img, { scale: 1.14 }, { scale: 1.08 }, 0);
+
+      gsap.fromTo(img, { yPercent: -3 }, {
+        yPercent: 3,
+        ease: 'none',
+        scrollTrigger: { trigger: frame, start: 'top bottom', end: 'bottom top', scrub: true }
+      });
+    }
+
+    const bio = document.querySelector('.about-bio');
+    if (bio && SplitText) {
+      // aria "none": the text stays as real text for screen readers; lines re-split on resize
+      SplitText.create(bio, {
+        type: 'lines',
+        mask: 'lines',
+        aria: 'none',
+        autoSplit: true,
+        onSplit: (self) => gsap.from(self.lines, {
+          yPercent: 105,
+          duration: 1,
+          ease: 'expo.out',
+          stagger: 0.09,
+          delay: 0.15,
+          scrollTrigger: { trigger: bio, start: 'top 88%', once: true }
+        })
+      });
+    }
+
+    return () => soft?.remove();
+  }
+
+  #headings(gsap, ScrollTrigger, SplitText) {
+    const heads = gsap.utils.toArray('.section-head');
+    if (!heads.length) return null;
+    const timelines = new Map();
+
+    heads.forEach(head => {
+      const eyebrow = head.querySelector('.eyebrow');
+      const title = head.querySelector('.section-title');
+      const tl = gsap.timeline({ paused: true, delay: 0.15 });
+      if (eyebrow) {
+        tl.fromTo(eyebrow, { '--rule': 0, opacity: 0 }, { '--rule': 1, opacity: 1, duration: 0.7, ease: 'expo.out' }, 0);
+      }
+      if (title && SplitText) {
+        const split = SplitText.create(title, { type: 'lines', mask: 'lines', aria: 'none' });
+        tl.from(split.lines, { yPercent: 110, duration: 0.9, ease: 'expo.out' }, 0.1)
+          .add(() => split.revert()); // back to a plain heading once it has landed
+      }
+      timelines.set(head, tl);
+    });
+
+    // Heads that arrive together start together
+    ScrollTrigger.batch(heads, {
+      start: 'top 88%',
+      once: true,
+      onEnter: (batch) => batch.forEach(head => timelines.get(head)?.play())
+    });
+    return null;
+  }
+
+  #reel(gsap, ScrollTrigger) {
+    const grid = document.getElementById('reel-grid');
+    gsap.utils.toArray('.reel-card').forEach(card => {
+      gsap.fromTo(card, { '--drift': -2.5 }, {
+        '--drift': 2.5,
+        ease: 'none',
+        scrollTrigger: { trigger: card, start: 'top bottom', end: 'bottom top', scrub: true }
+      });
+    });
+    if (!grid) return null;
+
+    // A filter change re-lays the grid (and the page height); re-measure once the glide has finished
+    let pending = null;
+    const observer = new MutationObserver(() => {
+      pending?.kill();
+      pending = gsap.delayedCall(0.7, () => ScrollTrigger.refresh());
+    });
+    observer.observe(grid, { attributes: true, attributeFilter: ['data-view'] });
+    return () => {
+      observer.disconnect();
+      pending?.kill();
+    };
+  }
+
+  #playhead(gsap) {
+    const header = document.getElementById('site-header');
+    if (!header) return null;
+    const bar = document.createElement('span');
+    bar.className = 'site-header__playhead';
+    bar.setAttribute('aria-hidden', 'true');
+    header.appendChild(bar);
+    gsap.fromTo(bar, { scaleX: 0 }, {
+      scaleX: 1,
+      ease: 'none',
+      scrollTrigger: { start: 0, end: 'max', scrub: 0.3 }
+    });
+    return () => bar.remove();
+  }
+
+  #credits(gsap) {
+    const footer = document.querySelector('.site-footer');
+    if (!footer) return null;
+    const lines = footer.querySelectorAll('.footer-inner .stagger-item');
+    const tl = gsap.timeline({
+      defaults: { ease: 'none' },
+      scrollTrigger: { trigger: footer, start: 'top 80%', end: 'max', scrub: 0.6 }
+    });
+    tl.fromTo(footer, { '--bars': 0 }, { '--bars': 1, duration: 1 }, 0);
+    if (lines.length) {
+      tl.fromTo(lines, { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.18, ease: 'power2.out' }, 0.05);
+    }
+    return null;
+  }
+
+  /** The page height changes after setup (fonts, split lines, filters); re-measure when it settles */
+  #keepMeasured(gsap, ScrollTrigger) {
+    if (!('ResizeObserver' in window)) return null;
+    let pending = null;
+    let lastHeight = document.body.offsetHeight;
+    const observer = new ResizeObserver(() => {
+      const height = document.body.offsetHeight;
+      if (height === lastHeight) return;
+      lastHeight = height;
+      pending?.kill();
+      pending = gsap.delayedCall(0.7, () => ScrollTrigger.refresh());
+    });
+    observer.observe(document.body);
+    return () => {
+      observer.disconnect();
+      pending?.kill();
+    };
+  }
+
+  destroy() {
+    this.#mm?.revert();
+    this.#mm = null;
+  }
+}
+
+/**
  * PortfolioApp
  * Global coordinator and entry point initialized on DOMContentLoaded.
  */
@@ -1703,6 +1970,7 @@ class PortfolioApp {
     this.mediaPreview = null;
     this.opener = null;
     this.heroLoop = null;
+    this.scrollMotion = null;
     this.isInitialized = false;
   }
 
@@ -1716,6 +1984,7 @@ class PortfolioApp {
     this.mediaPreview = new MediaPreviewController(this.videoModal);
     this.opener = new CinematicOpenerController();
     this.heroLoop = new HeroLoopController();
+    this.scrollMotion = new ScrollMotionController(this.opener);
 
     // Play all: opens the first film in the current view; Up next carries on through the reel
     document.getElementById('reel-play-all')?.addEventListener('click', () => {

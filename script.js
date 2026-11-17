@@ -96,6 +96,35 @@ class HeaderNavController {
 
     // Check scroll position immediately on page load / refresh
     this.updateScrollState();
+
+    this.initSectionSpy();
+  }
+
+  /**
+   * Marks the nav link of the section crossing the middle of the screen
+   * (aria-current="location"); CSS draws the accent line under it.
+   */
+  initSectionSpy() {
+    if (!('IntersectionObserver' in window)) return;
+    const sections = new Map();
+    this.navLinks.forEach(link => {
+      const href = link.getAttribute('href') || '';
+      const section = href.startsWith('#') && href.length > 1 ? document.querySelector(href) : null;
+      if (!section) return;
+      if (!sections.has(section)) sections.set(section, []);
+      sections.get(section).push(link);
+    });
+    if (!sections.size) return;
+
+    this.sectionObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        sections.get(entry.target)?.forEach(link => {
+          if (entry.isIntersecting) link.setAttribute('aria-current', 'location');
+          else link.removeAttribute('aria-current');
+        });
+      });
+    }, { rootMargin: '-45% 0px -55% 0px', threshold: 0 });
+    sections.forEach((links, section) => this.sectionObserver.observe(section));
   }
 
   /**
@@ -288,6 +317,7 @@ class HeaderNavController {
     document.removeEventListener('keydown', this.handleKeyDown);
     document.removeEventListener('click', this.handleDocumentClick);
     window.removeEventListener('resize', this.handleResize);
+    this.sectionObserver?.disconnect();
 
     if (this.toggleBtn) {
       this.toggleBtn.removeEventListener('click', this.handleToggleClick);
@@ -422,6 +452,51 @@ class ReelFilterController {
 }
 
 /**
+ * SeriesRowController
+ * Phones: the FICO MANA cards sit in a swipe row. Keeps the small "01 / 03"
+ * counter in the series header in step with the card nearest the row's start.
+ */
+class SeriesRowController {
+  #row;
+  #count;
+  #ticking = false;
+
+  constructor() {
+    this.#row = document.querySelector('.reel-series-row');
+    this.#count = document.getElementById('reel-series-count');
+    if (!this.#row || !this.#count) return;
+    this.update = this.update.bind(this);
+    this.#row.addEventListener('scroll', () => {
+      if (this.#ticking) return;
+      this.#ticking = true;
+      window.requestAnimationFrame(() => {
+        this.#ticking = false;
+        this.update();
+      });
+    }, { passive: true });
+    this.update();
+  }
+
+  update() {
+    const cards = Array.from(this.#row.children);
+    if (!cards.length) return;
+    const start = this.#row.getBoundingClientRect().left;
+    let nearest = 0;
+    let best = Infinity;
+    cards.forEach((card, i) => {
+      const d = Math.abs(card.getBoundingClientRect().left - start);
+      if (d < best) { best = d; nearest = i; }
+    });
+    // at the end of the row the last card can never reach the start edge
+    if (this.#row.scrollLeft > 0 && this.#row.scrollLeft + this.#row.clientWidth >= this.#row.scrollWidth - 2) {
+      nearest = cards.length - 1;
+    }
+    const pad = (n) => String(n).padStart(2, '0');
+    this.#count.textContent = `${pad(nearest + 1)} / ${pad(cards.length)}`;
+  }
+}
+
+/**
  * VideoModalPlayerController
  * Manages native HTML5 <dialog> modal player lifecycle, video buffering,
  * sequential transport navigation (prev/next), keyboard accessibility,
@@ -449,6 +524,11 @@ class VideoModalPlayerController {
   #pendingPops = 0;
   #closeShot = null;
   #navDirection = 0;
+  #endSlate = null;
+  #strip = null;
+  #stripButtons = [];
+  #watched = new Map();
+  #pageTitle = document.title;
 
   constructor() {
     this.#dialog = document.getElementById('video-modal');
@@ -480,6 +560,9 @@ class VideoModalPlayerController {
       status: this.#dialog.querySelector('#modal-upnext-status'),
       seconds: 5
     };
+
+    this.#endSlate = this.#dialog.querySelector('#modal-endslate');
+    this.#strip = this.#dialog.querySelector('#modal-strip');
 
     this.navigate = this.navigate.bind(this);
 
@@ -623,6 +706,27 @@ class VideoModalPlayerController {
 
     // Up next: when a film ends, offer the next one with a short countdown
     this.#video?.addEventListener('ended', () => this.#showUpNext());
+
+    // End of reel (after the last film): replay it, or go back to the grid
+    this.#dialog.querySelector('#modal-end-replay')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.#hideUpNext();
+      if (this.#video) {
+        this.#video.currentTime = 0;
+        this.#video.play().catch(() => {});
+        this.#video.focus();
+      }
+    });
+    this.#dialog.querySelector('#modal-end-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.close();
+    });
+
+    // Watched mark: remember how far each film got (this visit only)
+    this.#video?.addEventListener('timeupdate', () => this.#recordProgress());
+    this.#video?.addEventListener('ended', () => this.#recordProgress(1));
+
+    this.#buildStrip();
     this.#upnext.play?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.#hideUpNext();
@@ -694,7 +798,14 @@ class VideoModalPlayerController {
     const { panel, count, scene, title, status, seconds } = this.#upnext;
     if (!panel || this.#currentIndex < 0) return;
     const nextCard = this.#cards[this.#currentIndex + 1];
-    if (!nextCard) return; // last film: the reel ends here
+    if (!nextCard) {
+      // last film: the reel ends on a closing slate
+      if (this.#endSlate) {
+        this.#endSlate.hidden = false;
+        if (status) status.textContent = 'End of the reel.';
+      }
+      return;
+    }
 
     const nextTitle = nextCard.querySelector('.reel-title')?.textContent?.trim() || '';
     if (scene) scene.textContent = nextCard.dataset.scene || '';
@@ -721,7 +832,85 @@ class VideoModalPlayerController {
     window.clearInterval(this.#upnextTimer);
     this.#upnextTimer = null;
     if (this.#upnext.panel) this.#upnext.panel.hidden = true;
+    if (this.#endSlate && !this.#endSlate.hidden) {
+      // keep keyboard focus inside the viewer when the slate goes away
+      if (this.#endSlate.contains(document.activeElement)) this.#video?.focus();
+      this.#endSlate.hidden = true;
+    }
     if (this.#upnext.status) this.#upnext.status.textContent = '';
+  }
+
+  /** Film strip (wide screens): one small poster per film; the current one is marked */
+  #buildStrip() {
+    if (!this.#strip) return;
+    this.#stripButtons = this.#cards.map((card, index) => {
+      const title = card.querySelector('.reel-title')?.textContent?.trim() || '';
+      const poster = card.querySelector('.reel-video')?.dataset.poster || '';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'modal-strip__btn';
+      btn.setAttribute('aria-label', `Play ${title}`);
+      if (poster) {
+        const img = document.createElement('img');
+        img.src = poster;
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.width = 64;
+        img.height = 44;
+        btn.appendChild(img);
+      }
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (index === this.#currentIndex) return;
+        this.#hideUpNext();
+        this.#navDirection = Math.sign(index - this.#currentIndex);
+        this.open(this.#cards[index]);
+        this.#navDirection = 0;
+      });
+      this.#strip.appendChild(btn);
+      return btn;
+    });
+  }
+
+  #syncStrip() {
+    this.#stripButtons.forEach((btn, index) => {
+      if (index === this.#currentIndex) btn.setAttribute('aria-current', 'true');
+      else btn.removeAttribute('aria-current');
+    });
+  }
+
+  /** Watched mark: the furthest point reached in the film that is open */
+  #recordProgress(force) {
+    const card = this.#cards[this.#currentIndex];
+    const v = this.#video;
+    if (!card || !v) return;
+    const fraction = force ?? (v.duration ? v.currentTime / v.duration : 0);
+    if (!(fraction > 0)) return;
+    this.#watched.set(card, Math.min(1, Math.max(this.#watched.get(card) || 0, fraction)));
+  }
+
+  /** Draws the mark on a card: a hairline along its bottom edge, as long as the part watched */
+  #showWatched(card) {
+    const fraction = this.#watched.get(card);
+    if (!card || !fraction || fraction < 0.02) return;
+    let mark = card.querySelector('.reel-watched');
+    if (!mark) {
+      mark = document.createElement('span');
+      mark.className = 'reel-watched';
+      mark.setAttribute('aria-hidden', 'true');
+      card.appendChild(mark);
+    }
+    mark.style.setProperty('--watched', fraction.toFixed(4));
+  }
+
+  /** Opening from the grid or a link: letterbox bars part over the film (the site's signature move) */
+  #playBars() {
+    const frame = this.#dialog.querySelector('.modal-video-container');
+    if (!frame || this.#isReducedMotion) return;
+    frame.classList.remove('is-opening');
+    void frame.offsetWidth; // restart the animation
+    frame.classList.add('is-opening');
   }
 
   /** FLIP: the dialog opens at once (so state is synchronous), then grows out of the card it came from */
@@ -775,6 +964,9 @@ class VideoModalPlayerController {
       this.#cards = Array.from(document.querySelectorAll('.reel-card'));
     }
 
+    // moving on from another film: leave its watched mark on its card
+    if (this.#dialog.open && this.#currentIndex >= 0) this.#showWatched(this.#cards[this.#currentIndex]);
+
     let card;
     if (typeof cardOrIndex === 'number') {
       this.#currentIndex = (cardOrIndex + this.#cards.length) % this.#cards.length;
@@ -791,6 +983,7 @@ class VideoModalPlayerController {
       this.#lastActiveElement = document.activeElement;
     }
     this.#hideUpNext();
+    this.#syncStrip();
 
     const videoEl = card.querySelector('.reel-video, video');
     const src = videoEl?.dataset.src || videoEl?.src || '';
@@ -800,6 +993,7 @@ class VideoModalPlayerController {
     const scene = card.dataset.scene || card.querySelector('.reel-scene')?.textContent?.trim() || `SC.0${this.#currentIndex + 1}`;
 
     if (this.#title) this.#title.textContent = title;
+    document.title = `${title} — CEDIREKO Films`;
     if (this.#cat) this.#cat.textContent = cat;
     if (this.#tc) this.#tc.textContent = tc;
     if (this.#scene) this.#scene.textContent = scene;
@@ -830,6 +1024,7 @@ class VideoModalPlayerController {
       }
       this.#closeBtn?.focus();
       this.#playOpenTransition(card);
+      this.#playBars();
     } else if (!this.#isReducedMotion) {
       // Next / previous inside the viewer: the new film pushes in from the side you
       // are heading to (Next from the right, Prev from the left); other changes just fade
@@ -947,6 +1142,8 @@ class VideoModalPlayerController {
     this.#playCloseShot();
     this.#hideUpNext();
     this.#leaveHistoryEntry();
+    if (this.#currentIndex >= 0) this.#showWatched(this.#cards[this.#currentIndex]);
+    document.title = this.#pageTitle;
     if (this.#video) {
       this.#video.pause();
       this.#video.removeAttribute('src');
@@ -1433,6 +1630,12 @@ class HeroLoopController {
     this.#isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       || navigator.connection?.saveData === true;
 
+    // Phones held upright play the 9:16 cut, so they get its poster too
+    const verticalPoster = this.#video.dataset.posterVertical;
+    if (verticalPoster && window.matchMedia('(max-width: 767px) and (orientation: portrait)').matches) {
+      this.#video.setAttribute('poster', verticalPoster);
+    }
+
     if (this.#isReducedMotion) {
       // Drop autoplay and reload so the element falls back to its poster frame
       this.#video.removeAttribute('autoplay');
@@ -1495,6 +1698,7 @@ class PortfolioApp {
   constructor() {
     this.headerNav = null;
     this.reelFilter = null;
+    this.seriesRow = null;
     this.videoModal = null;
     this.mediaPreview = null;
     this.opener = null;
@@ -1507,6 +1711,7 @@ class PortfolioApp {
 
     this.headerNav = new HeaderNavController();
     this.reelFilter = new ReelFilterController();
+    this.seriesRow = new SeriesRowController();
     this.videoModal = new VideoModalPlayerController();
     this.mediaPreview = new MediaPreviewController(this.videoModal);
     this.opener = new CinematicOpenerController();

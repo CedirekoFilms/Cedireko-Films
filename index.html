@@ -151,8 +151,10 @@
   <section class="hero" id="hero" aria-labelledby="hero-title">
     <!-- Ambient looping cinematic video background -->
     <div class="hero__video-bg" aria-hidden="true">
-      <video class="hero__video-media" autoplay muted loop playsinline preload="auto" poster="assets/posters/hero-loop.webp">
-        <!-- Desktop gets 720p; phones get the 540p copy (browsers that ignore media take the first) -->
+      <video class="hero__video-media" autoplay muted loop playsinline preload="auto" poster="assets/posters/hero-loop.webp" data-poster-vertical="assets/posters/hero-loop-vertical.webp">
+        <!-- Phones held upright get a 9:16 cut (from the FICO MANA verticals); desktop gets 720p;
+             other phones get the 540p copy -->
+        <source src="projects/hero-loop-vertical.mp4" type="video/mp4" media="(max-width: 767px) and (orientation: portrait)">
         <source src="projects/hero-loop.mp4" type="video/mp4" media="(min-width: 768px)">
         <source src="projects/hero-loop-540.mp4" type="video/mp4">
       </video>
@@ -183,7 +185,7 @@
         <span class="kinetic-wordmark">CEDIREKO FILMS</span>
       </h1>
       <div class="hero__tagline-group">
-        <p class="tagline hero__tagline">&ldquo;Maging mabait lang palagi.&rdquo;</p>
+        <p class="tagline hero__tagline" lang="tl">&ldquo;Maging mabait lang palagi.&rdquo;</p>
       </div>
       <p class="hero__descriptor">Cinematography&nbsp;&bull; Direction&nbsp;&bull; Manila</p>
     </div>
@@ -275,6 +277,7 @@
             <span class="eyebrow">Editorial Series</span>
             <h3 class="reel-series-title">FICO MANA</h3>
             <p class="reel-series-desc">Three-part vertical collection &bull; Cyra &bull; Breanna &bull; Leigh</p>
+            <span class="reel-series-count" id="reel-series-count" aria-hidden="true">01 / 03</span>
           </div>
         </div>
 
@@ -348,6 +351,19 @@
           Your browser does not support native video playback.
         </video>
 
+        <!-- Letterbox bars that part as the viewer opens (decorative) -->
+        <span class="modal-bars" aria-hidden="true"></span>
+
+        <!-- End of reel: shown when the last film ends -->
+        <div class="modal-upnext modal-upnext--end" id="modal-endslate" hidden>
+          <span class="modal-upnext__label">End of reel</span>
+          <p class="modal-upnext__title wordmark">CEDIREKO FILMS</p>
+          <div class="modal-upnext__actions">
+            <button type="button" class="modal-nav-btn" id="modal-end-replay"><span class="modal-nav-text">Replay</span></button>
+            <button type="button" class="modal-nav-btn" id="modal-end-close"><span class="modal-nav-text">Back to the reel</span></button>
+          </div>
+        </div>
+
         <!-- Up next: shown when a film ends, plays the next one after a 5 s countdown -->
         <div class="modal-upnext" id="modal-upnext" hidden>
           <span class="modal-upnext__label">Up next <span class="modal-upnext__count" id="modal-upnext-count" aria-hidden="true">5</span></span>
@@ -369,6 +385,9 @@
           <h3 class="modal-title" id="modal-title">VERONIKKA REBRANDING</h3>
           <span class="modal-tc" id="modal-tc">01:29</span>
         </div>
+
+        <!-- Film strip: jump to any film (wide screens; filled in by VideoModalPlayerController) -->
+        <div class="modal-strip" id="modal-strip" role="group" aria-label="All films"></div>
 
         <!-- Cinema Viewer Transport: Prev / Next Navigation -->
         <div class="modal-transport" aria-label="Reel transport controls">

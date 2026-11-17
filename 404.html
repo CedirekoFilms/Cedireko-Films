@@ -54,9 +54,10 @@
     justify-content: center;
     min-height: 48px;
     padding: 0.75rem 2rem;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
+    font-weight: 600;
     font-size: 0.8rem;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     text-decoration: none;
     color: var(--bone);
@@ -64,6 +65,9 @@
     background: rgba(205, 160, 90, 0.08);
     transition: background 0.2s ease, border-color 0.2s ease;
   }
+  /* The bars and the monitor readout only show on the home hero once it is "revealed"; here they are always on */
+  .error-page .letterbox { transform: scaleY(1); }
+  .error-page .hero-tc { opacity: 0.65; }
   .error-cta:hover, .error-cta:focus-visible {
     background: rgba(205, 160, 90, 0.2);
     border-color: var(--bone);

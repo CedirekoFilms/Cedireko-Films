@@ -63,6 +63,7 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 │   ├── VERONIKKA_REVISED_3.mp4
 │   ├── hero-loop.mp4       # 12 s, 720p silent hero montage (2.9 MB, desktop)
 │   ├── hero-loop-540.mp4   # Same loop at 540p for phones (1.3 MB)
+│   ├── hero-loop-vertical.mp4  # 10.6 s, 9:16 cut for phones held upright (0.9 MB)
 │   ├── EA_FINALCUT.mp4
 │   ├── FICOMANA_CYRA_2_1.mp4
 │   ├── FICOMANA_CYRA_2_1_web.mp4 # Web derivative (PSNR 47.76 dB, SSIM 0.9929)

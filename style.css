@@ -777,6 +777,59 @@ p {
   transform: scale(1.02);
 }
 
+/* Drift wall: the reel's stills drift in slow columns on a tilted plane behind the title.
+   Built by DriftWallController (a port of React Bits "DriftWall"). Kept dim and masked
+   to the centre so it reads as texture, never competes with the wordmark. */
+.drift-wall {
+  --dw-tile-w: 200px;
+  --dw-gap: 14px;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  perspective: 1200px;
+  perspective-origin: 50% 50%;
+  opacity: 0.2;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse 80% 85% at 50% 48%, #000 35%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 85% at 50% 48%, #000 35%, transparent 100%);
+}
+
+.drift-wall__plane {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  transform-style: preserve-3d;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.drift-wall__col {
+  width: calc(var(--dw-tile-w) + var(--dw-gap));
+  flex: 0 0 auto;
+}
+
+.drift-wall__track {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+
+.drift-wall__tile {
+  flex: 0 0 auto;
+  padding: calc(var(--dw-gap) / 2);
+}
+
+.drift-wall__tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  filter: saturate(0.7) brightness(0.85);
+}
+
 .hero__video-overlay {
   position: absolute;
   inset: 0;
@@ -2511,6 +2564,11 @@ dialog#video-modal.video-modal--portrait {
     transform: none !important;
   }
 
+  .drift-wall__plane,
+  .drift-wall__track {
+    will-change: auto;
+  }
+
   .grain::before,
   .reel-grid .reel-card,
   .reel-grid .reel-card .reel-video,
@@ -2577,7 +2635,8 @@ dialog#video-modal.video-modal--portrait {
       animation-range: exit 0% exit 85%;
     }
 
-    html:not(.gsap-motion) .hero__video-media {
+    html:not(.gsap-motion) .hero__video-media,
+    html:not(.gsap-motion) .drift-wall {
       animation: camera-push linear both;
       animation-timeline: --hero-exit;
       animation-range: exit 0% exit 100%;
@@ -2609,7 +2668,8 @@ dialog#video-modal.video-modal--portrait {
   scale: 1 var(--shut, 1);
 }
 
-.gsap-motion .hero__video-media {
+.gsap-motion .hero__video-media,
+.gsap-motion .drift-wall {
   scale: var(--push, 1);
 }
 

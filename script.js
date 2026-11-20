@@ -1702,6 +1702,279 @@ class HeroLoopController {
 }
 
 /**
+ * DriftWallController
+ * The reel's stills drift in slow columns on a tilted plane behind the hero title.
+ * Vanilla port of the React Bits "DriftWall" component, copyright (c) 2026 David Haz,
+ * MIT + Commons Clause (full notice: licenses/react-bits-LICENSE.md).
+ * Adapted for this site: tiles are the film stills (repeated, since there are few),
+ * not links and not focusable; 2px radius and brand tint come from style.css;
+ * pointer tilt only on fine pointers. The drift glides to a stop with the hero
+ * Pause button (WCAG 2.2.2), and stops off screen and in a hidden tab.
+ * Reduced motion: the wall is built once and rests still.
+ */
+class DriftWallController {
+  #root;
+  #hero;
+  #plane;
+  #tracks;
+  #columns;
+  #offsets;
+  #velocities;
+  #pointer;
+  #damped;
+  #rafId;
+  #lastTs;
+  #visible;
+  #isReducedMotion;
+  #observer;
+  #classObserver;
+  #resizeObserver;
+  #resizeTimer;
+  #lastSize;
+
+  constructor(options = {}) {
+    this.options = Object.assign({
+      selector: '[data-drift-wall]',
+      heroSelector: '#hero',
+      pausedClass: 'hero--loop-paused',
+      gap: 14,
+      tilt: 16,           // rotateX, degrees
+      turn: -14,          // rotateY, degrees
+      roll: 0,            // rotateZ, degrees
+      depth: 120,         // px the plane sits back
+      scale: 1.18,
+      speed: 16,          // px per second; columns alternate direction
+      variance: 0.45,     // how much column speeds differ (0 to 1)
+      parallax: 0.5       // pointer tilt strength (0 disables it)
+    }, options);
+
+    this.#root = document.querySelector(this.options.selector);
+    this.#hero = document.querySelector(this.options.heroSelector);
+    this.#plane = null;
+    this.#tracks = [];
+    this.#columns = [];
+    this.#offsets = [];
+    this.#velocities = [];
+    this.#pointer = { x: 0, y: 0 };
+    this.#damped = { x: 0, y: 0 };
+    this.#rafId = null;
+    this.#lastTs = null;
+    this.#visible = true;
+    this.#isReducedMotion = false;
+    this.#observer = null;
+    this.#classObserver = null;
+    this.#resizeObserver = null;
+    this.#resizeTimer = null;
+    this.#lastSize = '';
+
+    this.tick = this.tick.bind(this);
+    this.handlePointerMove = this.handlePointerMove.bind(this);
+    this.handleVisibility = this.handleVisibility.bind(this);
+
+    this.init();
+  }
+
+  init() {
+    if (!this.#root) return;
+    this.#isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.#build();
+
+    if (this.#isReducedMotion) return;
+
+    if ('IntersectionObserver' in window && this.#hero) {
+      this.#observer = new IntersectionObserver((entries) => {
+        this.#visible = entries[0].isIntersecting;
+        if (this.#visible) this.#wake();
+      }, { threshold: 0 });
+      this.#observer.observe(this.#hero);
+    }
+
+    // The hero Pause button toggles a class; restart the loop so the wall can glide back in
+    if (this.#hero) {
+      this.#classObserver = new MutationObserver(() => this.#wake());
+      this.#classObserver.observe(this.#hero, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    if (this.options.parallax > 0 && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      window.addEventListener('mousemove', this.handlePointerMove, { passive: true });
+    }
+    document.addEventListener('visibilitychange', this.handleVisibility);
+
+    if ('ResizeObserver' in window) {
+      this.#resizeObserver = new ResizeObserver(() => {
+        window.clearTimeout(this.#resizeTimer);
+        this.#resizeTimer = window.setTimeout(() => this.#build(), 200);
+      });
+      this.#resizeObserver.observe(this.#root);
+    }
+
+    this.#wake();
+  }
+
+  /** Tile list from the markup: "name:l name:p ..." (l = landscape 16:10, p = portrait 9:16) */
+  #readTiles() {
+    const path = this.#root.dataset.tilePath || '';
+    return (this.#root.dataset.tiles || '').split(/\s+/).filter(Boolean).map(entry => {
+      const [name, shape] = entry.split(':');
+      return { src: `${path}${name}.webp`, ratio: shape === 'p' ? 16 / 9 : 10 / 16 };
+    });
+  }
+
+  #build() {
+    const width = this.#root.clientWidth || window.innerWidth;
+    const height = this.#root.clientHeight || window.innerHeight;
+    const size = `${width}x${height}`;
+    if (size === this.#lastSize && this.#plane) return;
+    this.#lastSize = size;
+
+    const tiles = this.#readTiles();
+    if (!tiles.length) return;
+
+    const { gap } = this.options;
+    const tileW = Math.round(Math.min(220, Math.max(120, width * 0.13)));
+    const unitW = tileW + gap;
+    // The plane is scaled and turned away, so it needs to be wider than the frame to fill it
+    const columnCount = Math.max(4, Math.ceil((width * 1.4) / unitW));
+    this.#root.style.setProperty('--dw-tile-w', `${tileW}px`);
+    this.#root.style.setProperty('--dw-gap', `${gap}px`);
+
+    const plane = document.createElement('div');
+    plane.className = 'drift-wall__plane';
+    this.#tracks = [];
+    this.#columns = [];
+
+    for (let c = 0; c < columnCount; c++) {
+      // Each column runs through every still, starting somewhere different, so neighbours differ
+      const start = (c * 3) % tiles.length;
+      const order = tiles.map((_, i) => tiles[(start + i) % tiles.length]);
+      const heights = order.map(tile => Math.round(tileW * tile.ratio) + gap);
+      const copyHeight = heights.reduce((sum, h) => sum + h, 0);
+      const copies = Math.max(2, Math.ceil((height * 1.8) / copyHeight) + 1);
+
+      const col = document.createElement('div');
+      col.className = 'drift-wall__col';
+      const track = document.createElement('div');
+      track.className = 'drift-wall__track';
+
+      for (let k = 0; k < copies; k++) {
+        order.forEach((tile, i) => {
+          const cell = document.createElement('div');
+          cell.className = 'drift-wall__tile';
+          cell.style.height = `${heights[i]}px`;
+          const img = document.createElement('img');
+          img.src = tile.src;
+          img.alt = '';
+          img.decoding = 'async';
+          img.draggable = false;
+          cell.appendChild(img);
+          track.appendChild(cell);
+        });
+      }
+
+      col.appendChild(track);
+      plane.appendChild(col);
+      this.#tracks.push(track);
+
+      // Columns alternate direction; the golden-ratio spread keeps speeds from lining up
+      const spread = ((c * 0.6180339887 + 0.35) % 1) * 2 - 1;
+      const sign = c % 2 === 0 ? 1 : -1;
+      this.#columns.push({
+        copyHeight,
+        velocity: this.options.speed * (1 + this.options.variance * spread) * sign
+      });
+      if (this.#offsets[c] === undefined) this.#offsets[c] = copyHeight * ((c * 0.37) % 1);
+      this.#offsets[c] %= copyHeight;
+      if (this.#velocities[c] === undefined) this.#velocities[c] = this.#columns[c].velocity;
+    }
+
+    this.#root.replaceChildren(plane);
+    this.#plane = plane;
+    this.#render();
+  }
+
+  #render() {
+    if (!this.#plane) return;
+    const { tilt, turn, roll, depth, scale } = this.options;
+    this.#plane.style.transform =
+      `translate(-50%, -50%) scale(${scale}) ` +
+      `rotateX(${(tilt + this.#damped.y).toFixed(3)}deg) rotateY(${(turn + this.#damped.x).toFixed(3)}deg) ` +
+      `rotateZ(${roll}deg) translateZ(${-depth}px)`;
+    this.#tracks.forEach((track, c) => {
+      track.style.transform = `translate3d(0, ${(-this.#offsets[c]).toFixed(2)}px, 0)`;
+    });
+  }
+
+  #wake() {
+    if (this.#rafId || this.#isReducedMotion || !this.#visible || document.hidden) return;
+    this.#lastTs = null;
+    this.#rafId = window.requestAnimationFrame(this.tick);
+  }
+
+  tick(ts) {
+    this.#rafId = null;
+    if (!this.#visible || document.hidden) return;
+    if (this.#lastTs === null) this.#lastTs = ts;
+    const dt = Math.min(0.05, Math.max(0, ts - this.#lastTs) / 1000);
+    this.#lastTs = ts;
+
+    const paused = this.#hero?.classList.contains(this.options.pausedClass);
+
+    // Pointer tilt, damped
+    const maxTilt = this.options.parallax * 8;
+    const damp = 1 - Math.exp(-dt / 0.12);
+    this.#damped.x += (this.#pointer.x * maxTilt - this.#damped.x) * damp;
+    this.#damped.y += (-this.#pointer.y * maxTilt - this.#damped.y) * damp;
+
+    // Drift: velocities ease toward their target, so Pause glides to a stop instead of freezing
+    let moving = Math.abs(this.#pointer.x * maxTilt - this.#damped.x) > 0.01
+      || Math.abs(-this.#pointer.y * maxTilt - this.#damped.y) > 0.01;
+    this.#columns.forEach((col, c) => {
+      const target = paused ? 0 : col.velocity;
+      const ease = 1 - Math.exp(-dt / (paused ? 0.35 : 0.6));
+      this.#velocities[c] += (target - this.#velocities[c]) * ease;
+      if (paused && Math.abs(this.#velocities[c]) < 0.5) this.#velocities[c] = 0;
+      if (Math.abs(this.#velocities[c]) > 0) moving = true;
+      const next = (this.#offsets[c] ?? 0) + this.#velocities[c] * dt;
+      this.#offsets[c] = ((next % col.copyHeight) + col.copyHeight) % col.copyHeight;
+    });
+
+    this.#render();
+    // Paused and settled: stop the loop until something wakes it
+    if (!paused || moving) this.#rafId = window.requestAnimationFrame(this.tick);
+  }
+
+  handlePointerMove(e) {
+    if (!this.#hero || !this.#visible) return;
+    const rect = this.#hero.getBoundingClientRect();
+    this.#pointer = {
+      x: (e.clientX - rect.left) / rect.width - 0.5,
+      y: (e.clientY - rect.top) / rect.height - 0.5
+    };
+    this.#wake();
+  }
+
+  handleVisibility() {
+    if (document.hidden) {
+      if (this.#rafId) window.cancelAnimationFrame(this.#rafId);
+      this.#rafId = null;
+    } else {
+      this.#wake();
+    }
+  }
+
+  destroy() {
+    if (this.#rafId) window.cancelAnimationFrame(this.#rafId);
+    this.#rafId = null;
+    window.clearTimeout(this.#resizeTimer);
+    this.#observer?.disconnect();
+    this.#classObserver?.disconnect();
+    this.#resizeObserver?.disconnect();
+    window.removeEventListener('mousemove', this.handlePointerMove);
+    document.removeEventListener('visibilitychange', this.handleVisibility);
+  }
+}
+
+/**
  * ScrollMotionController
  * Scroll-linked motion on GSAP + ScrollTrigger (+ SplitText), self-hosted in vendor/gsap.
  * Runs only when GSAP is loaded and the visitor has not asked for reduced motion; it then
@@ -1755,7 +2028,7 @@ class ScrollMotionController {
     const hero = document.getElementById('hero');
     if (!hero) return null;
     const bars = hero.querySelectorAll('.letterbox');
-    const video = hero.querySelector('.hero__video-media');
+    const video = hero.querySelectorAll('.hero__video-media, .drift-wall');
     const wordmark = hero.querySelector('.kinetic-wordmark');
     const letters = wordmark ? Array.from(wordmark.querySelectorAll('.kinetic-letter')) : [];
 
@@ -1777,7 +2050,7 @@ class ScrollMotionController {
       scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: 0.6 }
     });
     if (bars.length) tl.fromTo(bars, { '--shut': 1 }, { '--shut': 6.5, duration: 0.85 }, 0);
-    if (video) tl.fromTo(video, { '--push': 1 }, { '--push': 1.12, duration: 1 }, 0);
+    if (video.length) tl.fromTo(video, { '--push': 1 }, { '--push': 1.12, duration: 1 }, 0);
     if (wordmark) tl.fromTo(wordmark, { '--spread': 0 }, { '--spread': 1, duration: 0.85 }, 0);
 
     // Pointer drift: one reused tween per axis instead of a CSS transition
@@ -1970,6 +2243,7 @@ class PortfolioApp {
     this.mediaPreview = null;
     this.opener = null;
     this.heroLoop = null;
+    this.driftWall = null;
     this.scrollMotion = null;
     this.isInitialized = false;
   }
@@ -1984,6 +2258,7 @@ class PortfolioApp {
     this.mediaPreview = new MediaPreviewController(this.videoModal);
     this.opener = new CinematicOpenerController();
     this.heroLoop = new HeroLoopController();
+    this.driftWall = new DriftWallController();
     this.scrollMotion = new ScrollMotionController(this.opener);
 
     // Play all: opens the first film in the current view; Up next carries on through the reel

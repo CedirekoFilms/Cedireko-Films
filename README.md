@@ -15,9 +15,13 @@ Official videography portfolio for **CEDIREKO Films**, an independent filmmaking
 | :--- | :--- | :--- | :--- | :--- |
 | **VERONIKKA REBRANDING** | Advertisement | Film / Landscape | 16:10 | Commercial campaign |
 | **EA PERFORMANCE** | Music Video | Film / Landscape | 16:10 | Live music performance |
+| **KELLY ISABELLE** | Same-Day Edit | Film / Landscape | 16:10 | 7th birthday celebration |
+| **106TH COMMENCEMENT** | Same-Day Edit | Film / Landscape | 16:10 | PH Law School graduation |
+| **STREETWEAR** | Fashion Film | Film / Landscape | 16:10 | Night streetwear shoot |
 | **FICO MANA — Cyra** | Fashion Reel | Vertical Reel | 9:16 | Editorial fashion narrative |
 | **FICO MANA — Breanna** | Fashion Reel | Vertical Reel | 9:16 | Editorial fashion narrative |
 | **FICO MANA — Leigh** | Fashion Reel | Vertical Reel | 9:16 | Editorial fashion narrative |
+| **FICO MANA — Kelay** | Fashion Reel | Vertical Reel | 9:16 | Editorial fashion narrative |
 
 ---
 
@@ -41,7 +45,7 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 ├── script.js               # Modular OOP controllers (Header, Filter, Modal, Previews)
 ├── vendor/gsap/            # GSAP 3.15.1 core, ScrollTrigger, SplitText (self-hosted, free licence): scroll-linked motion
 ├── README.md               # Architecture, project catalog, and verification guide
-├── .gitignore              # macOS artifacts and temporary exclusions
+├── .gitignore              # macOS artifacts, and the four new raw masters (over GitHub's 100 MB limit; kept on the Mac only)
 │
 ├── assets/                 # Brand assets and imagery
 │   ├── CEDIREKO PNG.png    # Studio logo mark master (2000px, used by JSON-LD)
@@ -58,8 +62,12 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 │       ├── ficomana_cyra.jpg / .webp
 │       ├── ficomana_breanna.jpg / .webp
 │       ├── ficomana_leigh.jpg / .webp
+│       ├── ficomana_kelay.jpg / .webp
+│       ├── kelly_isabelle.jpg / .webp
+│       ├── ph_law_school.jpg / .webp
+│       ├── streetwear.jpg / .webp
 │       ├── hero-loop.jpg / .webp
-│       └── wall/           # 360px WebP stills for the hero drift wall (64 KB in all)
+│       └── wall/           # 360px WebP stills for the hero drift wall, one per film (about 80 KB in all)
 │
 ├── projects/               # Authentic portfolio video files
 │   ├── VERONIKKA_REVISED_3.mp4
@@ -73,7 +81,11 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 │   ├── BREANNA_1_web.mp4   # Web derivative (PSNR 47.84 dB, SSIM 0.9924)
 │   ├── FICOMANA_LEIGH.mp4
 │   ├── FICOMANA_LEIGH_web.mp4 # Web-optimized derivative (43% bandwidth savings)
-│   └── previews/           # 3 s silent card loops for touch screens (140-290 KB each)
+│   ├── KELAY_REVISED_web.mp4  # Web derivative of KELAY_REVISED.mp4 (PSNR 47.33 dB, SSIM 0.9917)
+│   ├── KELLY_ISABELLE_SDE_web.mp4 # 1080p at about 2 Mbit/s, 89 MB, from a 2.3 GB master
+│   ├── SDE_PH_LAW_SCHOOL_web.mp4  # 1080p at about 2.2 Mbit/s, 87 MB, from a 2.0 GB master
+│   ├── STREETWEAR_web.mp4  # H.264 copy of the HEVC file v14044g…mp4 (PSNR 48.33 dB, SSIM 0.9947)
+│   └── previews/           # 3 s silent loops for touch-screen cards and the hero wall (115-290 KB each)
 │
 └── tests/                  # Headless Chrome DevTools Protocol (CDP) test suite
     ├── run_tests.js        # Test runner and CLI entry point

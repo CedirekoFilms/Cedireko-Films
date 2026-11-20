@@ -1663,7 +1663,7 @@ class HeroLoopController {
  * Adapted for this site: tiles are the films (repeated, since there are few), not links
  * and not focusable; 2px radius and brand tint come from style.css. Each tile shows its
  * still, then its 3 s silent clip: one hidden <video> per clip is painted into the
- * canvases of the tiles currently on screen, so the wall never runs more than seven
+ * canvases of the tiles currently on screen, so the wall runs one decoder per clip (nine)
  * decoders however many tiles it has. Data saver keeps the stills;
  * pointer tilt only on fine pointers. The drift glides to a stop with the hero
  * Pause button (WCAG 2.2.2), and stops off screen and in a hidden tab.

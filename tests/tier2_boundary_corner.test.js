@@ -80,7 +80,7 @@ suite.test('Overflow 1920px: Zero horizontal overflow on large 1080p desktop dis
 suite.test('Rapid Filter: Rapid toggling 10x does not corrupt total card count in DOM', async ({ browser }) => {
   const finalCardCount = await browser.evaluate("(() => {\n    const btns = Array.from(document.querySelectorAll('.reel-toggle-btn, .filter-btn'));\n    if (btns.length < 2) return document.querySelectorAll('.reel-card').length;\n    for (let i = 0; i < 10; i++) {\n      btns[i % btns.length].click();\n    }\n    return document.querySelectorAll('.reel-card').length;\n  })()");
 
-  Assert.strictEqual(finalCardCount, 5, 'Exactly 5 original cards must exist in DOM regardless of rapid toggling');
+  Assert.strictEqual(finalCardCount, 9, 'Exactly 9 original cards must exist in DOM regardless of rapid toggling');
 });
 
 suite.test('Rapid Filter: Exactly one tab maintains active class after rapid switching', async ({ browser }) => {
@@ -99,7 +99,7 @@ suite.test('Rapid Filter: Zero unhandled console errors or exceptions during rap
 suite.test('Rapid Filter: Card order remains consistent after multiple filter cycles', async ({ browser }) => {
   const cardOrder = await browser.evaluate("(() => {\n    const cards = Array.from(document.querySelectorAll('.reel-card .reel-title, .reel-card h3'));\n    return cards.map(c => c.textContent.trim());\n  })()");
 
-  Assert.greaterThanOrEqual(cardOrder.length, 5, 'Card order must retain all 5 project titles intact');
+  Assert.greaterThanOrEqual(cardOrder.length, 9, 'Card order must retain all 9 project titles intact');
 });
 
 suite.test('Rapid Filter: Keyboard accessibility (focus ring) remains functional on buttons', async ({ browser }) => {

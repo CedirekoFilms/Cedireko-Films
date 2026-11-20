@@ -710,6 +710,10 @@ p {
 .reel-grid .reel-card[data-film="cyra"] { --reveal-delay: 0.08s; }
 .reel-grid .reel-card[data-film="breanna"] { --reveal-delay: 0.2s; }
 .reel-grid .reel-card[data-film="leigh"] { --reveal-delay: 0.32s; }
+.reel-grid .reel-card[data-film="kelly"] { --reveal-delay: 0s; }
+.reel-grid .reel-card[data-film="commencement"] { --reveal-delay: 0.12s; }
+.reel-grid .reel-card[data-film="streetwear"] { --reveal-delay: 0.24s; }
+.reel-grid .reel-card[data-film="kelay"] { --reveal-delay: 0.44s; }
 
 @keyframes card-letterbox {
   from { clip-path: inset(50% 0 50% 0); }
@@ -1417,9 +1421,12 @@ section {
   gap: var(--space-5);
 }
 
+/* 12 columns from 640px: films two to a row (span 6); the FICO MANA cards two to a
+   row, four from 1024px (span 3). Cards marked .reel-card--third sit three to a row
+   from 900px (span 4). */
 @media (min-width: 640px) {
   .reel-grid {
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(12, 1fr);
     gap: var(--space-5);
   }
 }
@@ -1498,10 +1505,17 @@ section {
 
 @media (min-width: 640px) {
   .reel-grid[data-view="all"] .reel-card[data-orientation="landscape"] {
-    grid-column: span 3;
+    grid-column: span 6;
   }
   .reel-grid[data-view="all"] .reel-card[data-orientation="portrait"] {
-    grid-column: span 2;
+    grid-column: span 6;
+  }
+}
+
+/* Four vertical cards to a row once they are wide enough for their labels */
+@media (min-width: 1024px) {
+  .reel-grid[data-view="all"] .reel-card[data-orientation="portrait"] {
+    grid-column: span 3;
   }
 }
 
@@ -1517,7 +1531,14 @@ section {
 
 @media (min-width: 640px) {
   .reel-grid[data-view="landscape"] .reel-card {
-    grid-column: span 3;
+    grid-column: span 6;
+  }
+}
+
+@media (min-width: 900px) {
+  .reel-grid[data-view="all"] .reel-card--third[data-orientation="landscape"],
+  .reel-grid[data-view="landscape"] .reel-card--third[data-orientation="landscape"] {
+    grid-column: span 4;
   }
 }
 
@@ -1532,11 +1553,17 @@ section {
 
 @media (min-width: 640px) {
   .reel-grid[data-view="portrait"] .reel-card {
-    grid-column: span 2;
+    grid-column: span 6;
   }
 }
 
-/* FICO MANA row: from 640px its cards are ordinary grid items. On phones the three
+@media (min-width: 1024px) {
+  .reel-grid[data-view="portrait"] .reel-card {
+    grid-column: span 3;
+  }
+}
+
+/* FICO MANA row: from 640px its cards are ordinary grid items. On phones the four
    vertical films sit side by side in a row you swipe, the next one peeking in, so the
    series reads as one set. The row scrolls on its own; the page never scrolls sideways. */
 .reel-series-row {

@@ -151,10 +151,13 @@
   <section class="hero" id="hero" aria-labelledby="hero-title">
     <!-- Ambient background: drift wall of the reel's stills -->
     <div class="hero__video-bg" aria-hidden="true">
-      <!-- Drift wall: the reel's stills drifting in columns (built by DriftWallController) -->
+      <!-- Drift wall: the reel drifting in columns (built by DriftWallController).
+           Each tile shows its still, then plays its 3 s silent clip (name-preview.mp4).
+           Entry format name:shape[:crop] - l = 16:10, p = 9:16, crop = share trimmed top and bottom -->
       <div class="drift-wall" data-drift-wall
-        data-tiles="veronikka:l cyra:p ea:l breanna:p hero-loop:l leigh:p hero-loop-vertical:p"
-        data-tile-path="assets/posters/wall/"></div>
+        data-tiles="veronikka:l cyra:p ea:l:0.1 breanna:p hero-loop:l leigh:p hero-loop-vertical:p"
+        data-tile-path="assets/posters/wall/"
+        data-clip-path="projects/previews/"></div>
       <div class="hero__video-overlay"></div>
       <div class="hero__flare-streak" aria-hidden="true"></div>
     </div>

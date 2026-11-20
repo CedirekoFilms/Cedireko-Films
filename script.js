@@ -1660,8 +1660,11 @@ class HeroLoopController {
  * The reel's stills drift in slow columns on a tilted plane behind the hero title.
  * Vanilla port of the React Bits "DriftWall" component, copyright (c) 2026 David Haz,
  * MIT + Commons Clause (full notice: licenses/react-bits-LICENSE.md).
- * Adapted for this site: tiles are the film stills (repeated, since there are few),
- * not links and not focusable; 2px radius and brand tint come from style.css;
+ * Adapted for this site: tiles are the films (repeated, since there are few), not links
+ * and not focusable; 2px radius and brand tint come from style.css. Each tile shows its
+ * still, then its 3 s silent clip: one hidden <video> per clip is painted into the
+ * canvases of the tiles currently on screen, so the wall never runs more than seven
+ * decoders however many tiles it has. Data saver keeps the stills;
  * pointer tilt only on fine pointers. The drift glides to a stop with the hero
  * Pause button (WCAG 2.2.2), and stops off screen and in a hidden tab.
  * Reduced motion: the hero starts paused, so the wall rests still (Play opts in);
@@ -1686,6 +1689,10 @@ class DriftWallController {
   #resizeObserver;
   #resizeTimer;
   #lastSize;
+  #clips;
+  #sources;
+  #tileObserver;
+  #saveData;
 
   constructor(options = {}) {
     this.options = Object.assign({
@@ -1721,6 +1728,10 @@ class DriftWallController {
     this.#resizeObserver = null;
     this.#resizeTimer = null;
     this.#lastSize = '';
+    this.#clips = new Map();
+    this.#sources = null;
+    this.#tileObserver = null;
+    this.#saveData = navigator.connection?.saveData === true;
 
     this.tick = this.tick.bind(this);
     this.handlePointerMove = this.handlePointerMove.bind(this);
@@ -1732,11 +1743,13 @@ class DriftWallController {
   init() {
     if (!this.#root) return;
     this.#isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.#setupClips();
     this.#build();
 
     if ('IntersectionObserver' in window && this.#hero) {
       this.#observer = new IntersectionObserver((entries) => {
         this.#visible = entries[0].isIntersecting;
+        this.#syncPlayback();
         if (this.#visible) this.#wake();
       }, { threshold: 0 });
       this.#observer.observe(this.#hero);
@@ -1744,7 +1757,10 @@ class DriftWallController {
 
     // The hero Pause button toggles a class; restart the loop so the wall can glide back in
     if (this.#hero) {
-      this.#classObserver = new MutationObserver(() => this.#wake());
+      this.#classObserver = new MutationObserver(() => {
+        this.#syncPlayback();
+        this.#wake();
+      });
       this.#classObserver.observe(this.#hero, { attributes: true, attributeFilter: ['class'] });
     }
 
@@ -1762,15 +1778,106 @@ class DriftWallController {
       this.#resizeObserver.observe(this.#root);
     }
 
+    this.#syncPlayback();
     this.#wake();
   }
 
-  /** Tile list from the markup: "name:l name:p ..." (l = landscape 16:10, p = portrait 9:16) */
+  /** Tile list from the markup: "name:shape[:crop]" (l = landscape 16:10, p = portrait 9:16) */
   #readTiles() {
     const path = this.#root.dataset.tilePath || '';
     return (this.#root.dataset.tiles || '').split(/\s+/).filter(Boolean).map(entry => {
-      const [name, shape] = entry.split(':');
-      return { src: `${path}${name}.webp`, ratio: shape === 'p' ? 16 / 9 : 10 / 16 };
+      const [name, shape, crop] = entry.split(':');
+      return { name, src: `${path}${name}.webp`, ratio: shape === 'p' ? 16 / 9 : 10 / 16, crop: Number(crop) || 0 };
+    });
+  }
+
+  /** One hidden source video per clip; tiles on screen register their canvas with it */
+  #setupClips() {
+    const clipPath = this.#root.dataset.clipPath;
+    if (!clipPath || this.#saveData || typeof HTMLCanvasElement === 'undefined') return;
+
+    this.#sources = document.createElement('div');
+    this.#sources.className = 'drift-wall__sources';
+    this.#readTiles().forEach(tile => {
+      if (this.#clips.has(tile.name)) return;
+      const video = document.createElement('video');
+      video.muted = true;
+      video.defaultMuted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('muted', '');
+      video.preload = 'none';
+      video.dataset.src = `${clipPath}${tile.name}-preview.mp4`;
+      this.#sources.appendChild(video);
+      this.#clips.set(tile.name, { video, crop: tile.crop, canvases: new Set(), lastTime: -1 });
+    });
+
+    if ('IntersectionObserver' in window) {
+      this.#tileObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          const canvas = entry.target.querySelector('canvas');
+          const clip = this.#clips.get(entry.target.dataset.clip);
+          if (!canvas || !clip) return;
+          if (entry.isIntersecting) {
+            clip.canvases.add(canvas);
+            this.#paint(clip, canvas);
+          } else {
+            clip.canvases.delete(canvas);
+          }
+        });
+      }, { threshold: 0 });
+    }
+  }
+
+  /** Clips play only while the wall drifts: not paused, on screen, tab visible */
+  #syncPlayback() {
+    if (!this.#clips.size) return;
+    const play = !this.#isPaused() && this.#visible && !document.hidden;
+    this.#clips.forEach(clip => {
+      const { video } = clip;
+      if (play) {
+        if (!video.getAttribute('src')) {
+          video.src = video.dataset.src;
+          video.preload = 'auto';
+        }
+        video.play().catch(() => {});
+      } else if (!video.paused) {
+        video.pause();
+      }
+    });
+  }
+
+  /** Paint the clip's current frame into a tile canvas, cropped to cover it */
+  #paint(clip, canvas) {
+    const { video } = clip;
+    if (video.readyState < 2 || !video.videoWidth) return;
+    const frame = canvas.parentElement;
+    const w = frame.clientWidth;
+    const h = frame.clientHeight;
+    if (!w || !h) return;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    const sw0 = video.videoWidth;
+    const sh0 = video.videoHeight * (1 - clip.crop * 2);
+    const sy0 = video.videoHeight * clip.crop;
+    const scale = Math.max(w / sw0, h / sh0);
+    const sw = w / scale;
+    const sh = h / scale;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.drawImage(video, (sw0 - sw) / 2, sy0 + (sh0 - sh) / 2, sw, sh, 0, 0, w, h);
+    if (!canvas.classList.contains('is-live')) canvas.classList.add('is-live');
+  }
+
+  /** Repaint every on-screen tile whose clip has moved on to a new frame */
+  #paintClips() {
+    this.#clips.forEach(clip => {
+      const t = clip.video.currentTime;
+      if (t === clip.lastTime || !clip.canvases.size) return;
+      clip.lastTime = t;
+      clip.canvases.forEach(canvas => this.#paint(clip, canvas));
     });
   }
 
@@ -1815,12 +1922,22 @@ class DriftWallController {
           const cell = document.createElement('div');
           cell.className = 'drift-wall__tile';
           cell.style.height = `${heights[i]}px`;
+          const frame = document.createElement('div');
+          frame.className = 'drift-wall__frame';
+          frame.dataset.clip = tile.name;
           const img = document.createElement('img');
           img.src = tile.src;
           img.alt = '';
           img.decoding = 'async';
           img.draggable = false;
-          cell.appendChild(img);
+          frame.appendChild(img);
+          if (this.#clips.has(tile.name)) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 0; // no backing store until the tile is on screen
+            canvas.height = 0;
+            frame.appendChild(canvas);
+          }
+          cell.appendChild(frame);
           track.appendChild(cell);
         });
       }
@@ -1842,8 +1959,13 @@ class DriftWallController {
       if (this.#velocities[c] === undefined) this.#velocities[c] = this.#isPaused() ? 0 : this.#columns[c].velocity;
     }
 
+    // Old tiles are gone: forget their canvases, then watch the new ones
+    this.#tileObserver?.disconnect();
+    this.#clips.forEach(clip => { clip.canvases.clear(); clip.lastTime = -1; });
     this.#root.replaceChildren(plane);
+    if (this.#sources) this.#root.appendChild(this.#sources);
     this.#plane = plane;
+    if (this.#tileObserver) plane.querySelectorAll('.drift-wall__frame[data-clip]').forEach(f => this.#tileObserver.observe(f));
     this.#render();
   }
 
@@ -1898,6 +2020,7 @@ class DriftWallController {
     });
 
     this.#render();
+    this.#paintClips();
     // Paused and settled: stop the loop until something wakes it
     if (!paused || moving) this.#rafId = window.requestAnimationFrame(this.tick);
   }
@@ -1913,6 +2036,7 @@ class DriftWallController {
   }
 
   handleVisibility() {
+    this.#syncPlayback();
     if (document.hidden) {
       if (this.#rafId) window.cancelAnimationFrame(this.#rafId);
       this.#rafId = null;
@@ -1928,6 +2052,12 @@ class DriftWallController {
     this.#observer?.disconnect();
     this.#classObserver?.disconnect();
     this.#resizeObserver?.disconnect();
+    this.#tileObserver?.disconnect();
+    this.#clips.forEach(({ video }) => {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    });
     window.removeEventListener('mousemove', this.handlePointerMove);
     document.removeEventListener('visibilitychange', this.handleVisibility);
   }

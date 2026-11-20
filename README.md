@@ -51,7 +51,7 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 │   ├── IMG_9987.jpeg       # Raw master director founder portrait (preserved)
 │   ├── founder-portrait.webp # Web-optimized 2x retina portrait (WebP)
 │   ├── founder-portrait.jpg  # Web-optimized fallback portrait (JPEG)
-│   ├── og-cover.jpg        # Open Graph / Twitter Card social share banner
+│   ├── og-hero.jpg         # Open Graph / Twitter Card share image: the hero, 1200x630
 │   └── posters/            # Poster frames: JPEG masters + WebP copies used by the page (lazy-loaded)
 │       ├── veronikka.jpg / .webp
 │       ├── ea.jpg / .webp

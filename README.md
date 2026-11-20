@@ -58,13 +58,14 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 │       ├── ficomana_cyra.jpg / .webp
 │       ├── ficomana_breanna.jpg / .webp
 │       ├── ficomana_leigh.jpg / .webp
-│       └── hero-loop.jpg / .webp
+│       ├── hero-loop.jpg / .webp
+│       └── wall/           # 360px WebP stills for the hero drift wall (64 KB in all)
 │
 ├── projects/               # Authentic portfolio video files
 │   ├── VERONIKKA_REVISED_3.mp4
-│   ├── hero-loop.mp4       # 12 s, 720p silent hero montage (2.9 MB, desktop)
-│   ├── hero-loop-540.mp4   # Same loop at 540p for phones (1.3 MB)
-│   ├── hero-loop-vertical.mp4  # 10.6 s, 9:16 cut for phones held upright (0.9 MB)
+│   ├── hero-loop.mp4       # Former hero montage, 720p (kept, no longer referenced)
+│   ├── hero-loop-540.mp4   # Same loop at 540p (kept, no longer referenced)
+│   ├── hero-loop-vertical.mp4  # 9:16 cut (kept, no longer referenced)
 │   ├── EA_FINALCUT.mp4
 │   ├── FICOMANA_CYRA_2_1.mp4
 │   ├── FICOMANA_CYRA_2_1_web.mp4 # Web derivative (PSNR 47.76 dB, SSIM 0.9929)

@@ -1595,35 +1595,28 @@ class CinematicOpenerController {
 
 /**
  * HeroLoopController
- * Owns the hero background loop:
- * - Pause / play control (WCAG 2.2.2: moving content longer than 5s must be pausable)
- * - Stops decoding while the hero is off screen, resumes when it returns
- * - Reduced motion: never autoplays, shows the still poster instead
+ * Owns the Pause / Play control for the hero's background motion (the drift wall).
+ * WCAG 2.2.2: moving content longer than 5s must be pausable. The control toggles
+ * `hero--loop-paused` on the hero; DriftWallController and the viewfinder timecode follow it.
+ * Reduced motion and data-saver start paused; Play opts in.
  */
 class HeroLoopController {
   #heroEl;
-  #video;
   #toggleBtn;
   #label;
-  #observer;
   #userPaused;
-  #isReducedMotion;
 
   constructor(options = {}) {
     this.options = Object.assign({
       heroSelector: '#hero',
-      videoSelector: '.hero__video-media',
       toggleSelector: '#hero-loop-toggle',
       pausedClass: 'hero--loop-paused'
     }, options);
 
     this.#heroEl = document.querySelector(this.options.heroSelector);
-    this.#video = document.querySelector(this.options.videoSelector);
     this.#toggleBtn = document.querySelector(this.options.toggleSelector);
     this.#label = this.#toggleBtn?.querySelector('.hero__loop-label') || null;
-    this.#observer = null;
     this.#userPaused = false;
-    this.#isReducedMotion = false;
 
     this.handleToggleClick = this.handleToggleClick.bind(this);
 
@@ -1635,60 +1628,22 @@ class HeroLoopController {
   }
 
   init() {
-    if (!this.#heroEl || !this.#video) return;
-
-    // Reduced motion and data-saver both start on the still poster; Play opts in
-    this.#isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!this.#heroEl) return;
+    this.#userPaused = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       || navigator.connection?.saveData === true;
-
-    // Phones held upright play the 9:16 cut, so they get its poster too
-    const verticalPoster = this.#video.dataset.posterVertical;
-    if (verticalPoster && window.matchMedia('(max-width: 767px) and (orientation: portrait)').matches) {
-      this.#video.setAttribute('poster', verticalPoster);
-    }
-
-    if (this.#isReducedMotion) {
-      // Drop autoplay and reload so the element falls back to its poster frame
-      this.#video.removeAttribute('autoplay');
-      this.#video.autoplay = false;
-      this.#video.pause();
-      this.#video.load();
-      this.#userPaused = true;
-    }
-
     this.#toggleBtn?.addEventListener('click', this.handleToggleClick);
-
-    if ('IntersectionObserver' in window) {
-      this.#observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (this.#userPaused) return;
-          if (entry.isIntersecting) {
-            this.#video.play().catch(() => {});
-          } else {
-            this.#video.pause();
-          }
-        });
-      }, { threshold: 0 });
-      this.#observer.observe(this.#heroEl);
-    }
-
     this.#syncUi();
   }
 
   handleToggleClick() {
     this.#userPaused = !this.#userPaused;
-    if (this.#userPaused) {
-      this.#video.pause();
-    } else {
-      this.#video.play().catch(() => {});
-    }
     this.#syncUi();
   }
 
   #syncUi() {
     this.#heroEl.classList.toggle(this.options.pausedClass, this.#userPaused);
     if (this.#toggleBtn) {
-      this.#toggleBtn.setAttribute('aria-label', this.#userPaused ? 'Play background video' : 'Pause background video');
+      this.#toggleBtn.setAttribute('aria-label', this.#userPaused ? 'Play background motion' : 'Pause background motion');
     }
     if (this.#label) {
       this.#label.textContent = this.#userPaused ? 'Play' : 'Pause';
@@ -1696,7 +1651,6 @@ class HeroLoopController {
   }
 
   destroy() {
-    this.#observer?.disconnect();
     this.#toggleBtn?.removeEventListener('click', this.handleToggleClick);
   }
 }
@@ -1710,7 +1664,8 @@ class HeroLoopController {
  * not links and not focusable; 2px radius and brand tint come from style.css;
  * pointer tilt only on fine pointers. The drift glides to a stop with the hero
  * Pause button (WCAG 2.2.2), and stops off screen and in a hidden tab.
- * Reduced motion: the wall is built once and rests still.
+ * Reduced motion: the hero starts paused, so the wall rests still (Play opts in);
+ * the pointer tilt stays off.
  */
 class DriftWallController {
   #root;
@@ -1779,8 +1734,6 @@ class DriftWallController {
     this.#isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.#build();
 
-    if (this.#isReducedMotion) return;
-
     if ('IntersectionObserver' in window && this.#hero) {
       this.#observer = new IntersectionObserver((entries) => {
         this.#visible = entries[0].isIntersecting;
@@ -1795,7 +1748,8 @@ class DriftWallController {
       this.#classObserver.observe(this.#hero, { attributes: true, attributeFilter: ['class'] });
     }
 
-    if (this.options.parallax > 0 && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    if (this.options.parallax > 0 && !this.#isReducedMotion
+      && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
       window.addEventListener('mousemove', this.handlePointerMove, { passive: true });
     }
     document.addEventListener('visibilitychange', this.handleVisibility);
@@ -1884,12 +1838,17 @@ class DriftWallController {
       });
       if (this.#offsets[c] === undefined) this.#offsets[c] = copyHeight * ((c * 0.37) % 1);
       this.#offsets[c] %= copyHeight;
-      if (this.#velocities[c] === undefined) this.#velocities[c] = this.#columns[c].velocity;
+      // A wall that starts paused (reduced motion, data saver) starts still, not gliding to a stop
+      if (this.#velocities[c] === undefined) this.#velocities[c] = this.#isPaused() ? 0 : this.#columns[c].velocity;
     }
 
     this.#root.replaceChildren(plane);
     this.#plane = plane;
     this.#render();
+  }
+
+  #isPaused() {
+    return !!this.#hero?.classList.contains(this.options.pausedClass);
   }
 
   #render() {
@@ -1905,7 +1864,7 @@ class DriftWallController {
   }
 
   #wake() {
-    if (this.#rafId || this.#isReducedMotion || !this.#visible || document.hidden) return;
+    if (this.#rafId || !this.#visible || document.hidden) return;
     this.#lastTs = null;
     this.#rafId = window.requestAnimationFrame(this.tick);
   }
@@ -1917,7 +1876,7 @@ class DriftWallController {
     const dt = Math.min(0.05, Math.max(0, ts - this.#lastTs) / 1000);
     this.#lastTs = ts;
 
-    const paused = this.#hero?.classList.contains(this.options.pausedClass);
+    const paused = this.#isPaused();
 
     // Pointer tilt, damped
     const maxTilt = this.options.parallax * 8;
@@ -2028,7 +1987,7 @@ class ScrollMotionController {
     const hero = document.getElementById('hero');
     if (!hero) return null;
     const bars = hero.querySelectorAll('.letterbox');
-    const video = hero.querySelectorAll('.hero__video-media, .drift-wall');
+    const wall = hero.querySelector('.drift-wall');
     const wordmark = hero.querySelector('.kinetic-wordmark');
     const letters = wordmark ? Array.from(wordmark.querySelectorAll('.kinetic-letter')) : [];
 
@@ -2050,7 +2009,7 @@ class ScrollMotionController {
       scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: 0.6 }
     });
     if (bars.length) tl.fromTo(bars, { '--shut': 1 }, { '--shut': 6.5, duration: 0.85 }, 0);
-    if (video.length) tl.fromTo(video, { '--push': 1 }, { '--push': 1.12, duration: 1 }, 0);
+    if (wall) tl.fromTo(wall, { '--push': 1 }, { '--push': 1.12, duration: 1 }, 0);
     if (wordmark) tl.fromTo(wordmark, { '--spread': 0 }, { '--spread': 1, duration: 0.85 }, 0);
 
     // Pointer drift: one reused tween per axis instead of a CSS transition

@@ -149,15 +149,8 @@
 
   <!-- HERO: Cinematic Showcase -->
   <section class="hero" id="hero" aria-labelledby="hero-title">
-    <!-- Ambient looping cinematic video background -->
+    <!-- Ambient background: drift wall of the reel's stills -->
     <div class="hero__video-bg" aria-hidden="true">
-      <video class="hero__video-media" autoplay muted loop playsinline preload="auto" poster="assets/posters/hero-loop.webp" data-poster-vertical="assets/posters/hero-loop-vertical.webp">
-        <!-- Phones held upright get a 9:16 cut (from the FICO MANA verticals); desktop gets 720p;
-             other phones get the 540p copy -->
-        <source src="projects/hero-loop-vertical.mp4" type="video/mp4" media="(max-width: 767px) and (orientation: portrait)">
-        <source src="projects/hero-loop.mp4" type="video/mp4" media="(min-width: 768px)">
-        <source src="projects/hero-loop-540.mp4" type="video/mp4">
-      </video>
       <!-- Drift wall: the reel's stills drifting in columns (built by DriftWallController) -->
       <div class="drift-wall" data-drift-wall
         data-tiles="veronikka:l cyra:p ea:l breanna:p hero-loop:l leigh:p hero-loop-vertical:p"
@@ -177,7 +170,7 @@
     </div>
 
     <!-- Pause control for the background loop (WCAG 2.2.2) -->
-    <button type="button" class="hero__loop-toggle" id="hero-loop-toggle" aria-label="Pause background video">
+    <button type="button" class="hero__loop-toggle" id="hero-loop-toggle" aria-label="Pause background motion">
       <svg class="hero__loop-icon hero__loop-icon--pause" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg>
       <svg class="hero__loop-icon hero__loop-icon--play" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M7 4l13 8-13 8V4z"/></svg>
       <span class="hero__loop-label">Pause</span>

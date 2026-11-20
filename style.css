@@ -757,7 +757,7 @@ p {
   overflow: hidden;
 }
 
-/* Ambient Loop Video Background */
+/* Ambient background layer (holds the drift wall, overlay and flare) */
 .hero__video-bg {
   position: absolute;
   inset: 0;
@@ -766,15 +766,6 @@ p {
   overflow: hidden;
   pointer-events: none;
   z-index: 1;
-}
-
-.hero__video-media {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.62;
-  filter: saturate(0.9) contrast(1.05);
-  transform: scale(1.02);
 }
 
 /* Drift wall: the reel's stills drift in slow columns on a tilted plane behind the title.
@@ -2616,7 +2607,7 @@ dialog#video-modal.video-modal--portrait {
 
 /* ==========================================================================
    SCROLL SHUTTER
-   As the hero leaves, the letterbox bars close over it and the footage
+   As the hero leaves, the letterbox bars close over it and the drift wall
    pushes in slightly. This CSS version is the fallback for when GSAP is
    not loaded (ScrollMotionController runs the same move in every browser);
    reduced-motion visitors keep the static hero.
@@ -2636,7 +2627,6 @@ dialog#video-modal.video-modal--portrait {
       animation-range: exit 0% exit 85%;
     }
 
-    html:not(.gsap-motion) .hero__video-media,
     html:not(.gsap-motion) .drift-wall {
       animation: camera-push linear both;
       animation-timeline: --hero-exit;
@@ -2664,12 +2654,11 @@ dialog#video-modal.video-modal--portrait {
    values compose with the existing `transform` rules instead of replacing them.
    ========================================================================== */
 
-/* Shutter: bars close and the footage pushes in as the hero scrolls out */
+/* Shutter: bars close and the drift wall pushes in as the hero scrolls out */
 .gsap-motion .hero.revealed .letterbox {
   scale: 1 var(--shut, 1);
 }
 
-.gsap-motion .hero__video-media,
 .gsap-motion .drift-wall {
   scale: var(--push, 1);
 }

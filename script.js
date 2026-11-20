@@ -1743,7 +1743,7 @@ class DriftWallController {
       roll: 0,            // rotateZ, degrees
       depth: 120,         // px the plane sits back
       scale: 1.18,
-      speed: 16,          // px per second; columns alternate direction
+      speed: 10,          // px per second; columns alternate direction (slow, like the rest of the site)
       variance: 0.45,     // how much column speeds differ (0 to 1)
       parallax: 0.5       // pointer tilt strength (0 disables it)
     }, options);

@@ -827,7 +827,8 @@ p {
   object-fit: cover;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  filter: saturate(0.7) brightness(0.85);
+  /* Darkroom print: monochrome, warmed to bone highlights and pulled toward the maroon base */
+  filter: grayscale(1) sepia(0.85) hue-rotate(-28deg) saturate(1.35) brightness(0.82) contrast(1.08);
 }
 
 .hero__video-overlay {

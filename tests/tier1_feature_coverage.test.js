@@ -81,10 +81,10 @@ suite.test('Hero: Obsolete scroll prompt is completely swept from DOM', async ({
 // 2. PORTFOLIO REEL (>=5 tests)
 // ============================================================================
 
-suite.test('Reel: All 10 authentic project items are present in DOM', async ({ browser }) => {
+suite.test('Reel: All 11 authentic project items are present in DOM', async ({ browser }) => {
   const projectTitles = await browser.evaluate("(() => {\n    const cards = Array.from(document.querySelectorAll('.reel-card, [data-project-title]'));\n    return cards.map(c => {\n      const titleEl = c.querySelector('.reel-title, h3, [class*=\"title\"]');\n      return titleEl ? titleEl.textContent.trim().toUpperCase() : '';\n    });\n  })()");
 
-  Assert.greaterThanOrEqual(projectTitles.length, 10, 'Reel must contain at least 10 project cards');
+  Assert.greaterThanOrEqual(projectTitles.length, 11, 'Reel must contain at least 11 project cards');
   const allTitlesStr = projectTitles.join(' | ');
   Assert.includes(allTitlesStr, 'VERONIKKA', 'Veronikka project must be present');
   Assert.includes(allTitlesStr, 'EA', 'EA Performance project must be present');
@@ -96,17 +96,18 @@ suite.test('Reel: All 10 authentic project items are present in DOM', async ({ b
   Assert.includes(allTitlesStr, 'MEL @70TH', 'Mel @70th project must be present');
   Assert.includes(allTitlesStr, 'STREETWEAR', 'Streetwear project must be present');
   Assert.includes(allTitlesStr, 'KELAY', 'Fico Mana Kelay project must be present');
+  Assert.includes(allTitlesStr, 'KIM', 'Fico Mana Kim project must be present');
 });
 
 suite.test('Reel: Project cards have pre-allocated aspect ratios for CLS prevention', async ({ browser }) => {
   const orientations = await browser.evaluate("(() => {\n    const cards = Array.from(document.querySelectorAll('.reel-card'));\n    return cards.map(c => c.getAttribute('data-orientation') || 'unknown');\n  })()");
 
-  Assert.strictEqual(orientations.length, 10, '10 cards must exist');
+  Assert.strictEqual(orientations.length, 11, '11 cards must exist');
   const landscapeCount = orientations.filter(o => o === 'landscape').length;
   const portraitCount = orientations.filter(o => o === 'portrait').length;
 
   Assert.strictEqual(landscapeCount, 6, '6 landscape projects must have data-orientation="landscape"');
-  Assert.strictEqual(portraitCount, 4, '4 portrait projects must have data-orientation="portrait"');
+  Assert.strictEqual(portraitCount, 5, '5 portrait projects must have data-orientation="portrait"');
 });
 
 suite.test('Reel: Project cards display editorial categories (Commercial, Music Video, Fashion)', async ({ browser }) => {
@@ -140,7 +141,7 @@ suite.test('Reel: Video preview elements bind to valid local MP4 paths in projec
 
 suite.test('Reel: Interactive play rings or triggers are rendered on all cards', async ({ browser }) => {
   const playRingsCount = await browser.evaluate("document.querySelectorAll('.play-ring, .play-trigger, .card-play-btn').length");
-  Assert.greaterThanOrEqual(playRingsCount, 10, 'All 10 reel cards must have an interactive play indicator');
+  Assert.greaterThanOrEqual(playRingsCount, 11, 'All 11 reel cards must have an interactive play indicator');
 });
 
 // ============================================================================
@@ -166,10 +167,10 @@ suite.test('Filter Bar: Offers selectable views (including All Work, Films/Brand
   );
 });
 
-suite.test('Filter Bar: Default view displays all 10 projects on initial page load', async ({ browser }) => {
+suite.test('Filter Bar: Default view displays all 11 projects on initial page load', async ({ browser }) => {
   const visibleCount = await browser.evaluate("(() => {\n    const cards = Array.from(document.querySelectorAll('.reel-card'));\n    return cards.filter(c => {\n      const style = window.getComputedStyle(c);\n      return style.display !== 'none' && style.visibility !== 'hidden';\n    }).length;\n  })()");
 
-  Assert.strictEqual(visibleCount, 10, 'All 10 projects must be visible on initial load (default "All Work" view)');
+  Assert.strictEqual(visibleCount, 11, 'All 11 projects must be visible on initial load (default "All Work" view)');
 });
 
 suite.test('Filter Bar: Exactly one filter button is active on initial page load', async ({ browser }) => {

@@ -23,6 +23,7 @@ Official videography portfolio for **CEDIREKO Films**, an independent filmmaking
 | **FICO MANA — Breanna** | Fashion Reel | Vertical Reel | 9:16 | Editorial fashion narrative |
 | **FICO MANA — Leigh** | Fashion Reel | Vertical Reel | 9:16 | Editorial fashion narrative |
 | **FICO MANA — Kelay** | Fashion Reel | Vertical Reel | 9:16 | Editorial fashion narrative |
+| **FICO MANA — Kim** | Fashion Reel | Vertical Reel | 9:16 | Editorial fashion narrative |
 
 ---
 
@@ -46,7 +47,7 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 ├── script.js               # Modular OOP controllers (Header, Filter, Modal, Previews)
 ├── vendor/gsap/            # GSAP 3.15.1 core, ScrollTrigger, SplitText (self-hosted, free licence): scroll-linked motion
 ├── README.md               # Architecture, project catalog, and verification guide
-├── .gitignore              # macOS artifacts, and the five new raw masters (over GitHub's 100 MB limit; kept on the Mac only)
+├── .gitignore              # macOS artifacts, and the six new raw masters (over GitHub's 100 MB limit; kept on the Mac only)
 │
 ├── assets/                 # Brand assets and imagery
 │   ├── CEDIREKO PNG.png    # Studio logo mark master (2000px, used by JSON-LD)
@@ -64,6 +65,7 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 │       ├── ficomana_breanna.jpg / .webp
 │       ├── ficomana_leigh.jpg / .webp
 │       ├── ficomana_kelay.jpg / .webp
+│       ├── ficomana_kim.jpg / .webp
 │       ├── kelly_isabelle.jpg / .webp
 │       ├── ate_mel.jpg / .webp
 │       ├── ph_law_school.jpg / .webp
@@ -84,6 +86,7 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 │   ├── FICOMANA_LEIGH.mp4
 │   ├── FICOMANA_LEIGH_web.mp4 # Web-optimized derivative (43% bandwidth savings)
 │   ├── KELAY_REVISED_web.mp4  # Web derivative of KELAY_REVISED.mp4 (PSNR 47.33 dB, SSIM 0.9917)
+│   ├── ATE_KIM_web.mp4     # Web derivative of ATE KIM.mp4 (PSNR 46.01 dB, SSIM 0.9888)
 │   ├── KELLY_ISABELLE_SDE_web.mp4 # 1080p at about 2 Mbit/s, 89 MB, from a 2.3 GB master
 │   ├── SDE_PH_LAW_SCHOOL_web.mp4  # 1080p at about 2.2 Mbit/s, 87 MB, from a 2.0 GB master
 │   ├── ATE_MEL_web.mp4     # 1080p at about 3 Mbit/s, from the 548 MB master ATE MEL.mp4

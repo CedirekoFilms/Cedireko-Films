@@ -17,7 +17,7 @@ Official videography portfolio for **CEDIREKO Films**, an independent filmmaking
 | **EA PERFORMANCE** | Music Video | Film / Landscape | 16:10 | Live music performance |
 | **KELLY ISABELLE** | Same-Day Edit | Film / Landscape | 16:10 | 7th birthday celebration |
 | **MEL @70TH** | Event Film | Film / Landscape | 16:10 | 70th birthday celebration |
-| **106TH COMMENCEMENT** | Same-Day Edit | Film / Landscape | 16:10 | PH Law School graduation |
+| **PHILIPPINE LAW SCHOOL** | Same-Day Edit | Film / Landscape | 16:10 | 106th commencement exercises |
 | **STREETWEAR** | Fashion Film | Film / Landscape | 16:10 | Night streetwear shoot |
 | **FICO MANA — Cyra** | Fashion Reel | Vertical Reel | 9:16 | Editorial fashion narrative |
 | **FICO MANA — Breanna** | Fashion Reel | Vertical Reel | 9:16 | Editorial fashion narrative |

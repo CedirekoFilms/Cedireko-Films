@@ -92,7 +92,7 @@ suite.test('Reel: All 11 authentic project items are present in DOM', async ({ b
   Assert.includes(allTitlesStr, 'BREANNA', 'Fico Mana Breanna project must be present');
   Assert.includes(allTitlesStr, 'LEIGH', 'Fico Mana Leigh project must be present');
   Assert.includes(allTitlesStr, 'KELLY ISABELLE', 'Kelly Isabelle project must be present');
-  Assert.includes(allTitlesStr, '106TH COMMENCEMENT', '106th Commencement project must be present');
+  Assert.includes(allTitlesStr, 'PHILIPPINE LAW SCHOOL', 'Philippine Law School project must be present');
   Assert.includes(allTitlesStr, 'MEL @70TH', 'Mel @70th project must be present');
   Assert.includes(allTitlesStr, 'STREETWEAR', 'Streetwear project must be present');
   Assert.includes(allTitlesStr, 'KELAY', 'Fico Mana Kelay project must be present');

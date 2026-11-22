@@ -1662,9 +1662,11 @@ class HeroLoopController {
  * MIT + Commons Clause (full notice: licenses/react-bits-LICENSE.md).
  * Adapted for this site: tiles are the films (repeated, since there are few), not links
  * and not focusable; 2px radius and brand tint come from style.css. Each tile shows its
- * still, then its 3 s silent clip: one hidden <video> per clip is painted into the
- * canvases of the tiles currently on screen, so the wall runs one decoder per clip (ten)
- * decoders however many tiles it has. Data saver keeps the stills;
+ * still, then its 3 s silent clip (360px wall copies in projects/previews/wall/): one
+ * hidden <video> per clip is drawn once per frame into the first on-screen tile and copied
+ * to the clip's other tiles, so the wall runs one decoder per clip however many tiles it
+ * has. A phone that drops under about 22 fps gets drifting stills instead. Data saver
+ * keeps the stills;
  * pointer tilt only on fine pointers. The drift glides to a stop with the hero
  * Pause button (WCAG 2.2.2), and stops off screen and in a hidden tab.
  * Reduced motion: the hero starts paused, so the wall rests still (Play opts in);
@@ -1693,6 +1695,10 @@ class DriftWallController {
   #sources;
   #tileObserver;
   #saveData;
+  #frameTimes = [];
+  #watchAfter = 0;
+  #slowChecks = 0;
+  #clipStep;
 
   constructor(options = {}) {
     this.options = Object.assign({
@@ -1732,6 +1738,9 @@ class DriftWallController {
     this.#sources = null;
     this.#tileObserver = null;
     this.#saveData = navigator.connection?.saveData === true;
+    // Seconds between painted clip frames: every frame (24 fps) where a mouse is used,
+    // every other frame (12 fps) on touch screens, where phones do the painting on the CPU
+    this.#clipStep = window.matchMedia('(hover: hover) and (pointer: fine)').matches ? 0.001 : 1 / 13;
 
     this.tick = this.tick.bind(this);
     this.handlePointerMove = this.handlePointerMove.bind(this);
@@ -1848,37 +1857,89 @@ class DriftWallController {
     });
   }
 
-  /** Paint the clip's current frame into a tile canvas, cropped to cover it */
-  #paint(clip, canvas) {
-    const { video } = clip;
-    if (video.readyState < 2 || !video.videoWidth) return;
+  /** Size a tile canvas to its frame; returns false while the frame has no size */
+  #fit(canvas) {
     const frame = canvas.parentElement;
     const w = frame.clientWidth;
     const h = frame.clientHeight;
-    if (!w || !h) return;
+    if (!w || !h) return false;
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;
       canvas.height = h;
     }
+    if (!canvas.classList.contains('is-live')) canvas.classList.add('is-live');
+    return true;
+  }
+
+  /** Paint the clip's current frame into a tile canvas, cropped to cover it */
+  #paint(clip, canvas) {
+    const { video } = clip;
+    if (video.readyState < 2 || !video.videoWidth || !this.#fit(canvas)) return false;
+    const { width: w, height: h } = canvas;
     const sw0 = video.videoWidth;
     const sh0 = video.videoHeight * (1 - clip.crop * 2);
     const sy0 = video.videoHeight * clip.crop;
     const scale = Math.max(w / sw0, h / sh0);
     const sw = w / scale;
     const sh = h / scale;
-    const ctx = canvas.getContext('2d', { alpha: false });
-    ctx.drawImage(video, (sw0 - sw) / 2, sy0 + (sh0 - sh) / 2, sw, sh, 0, 0, w, h);
-    if (!canvas.classList.contains('is-live')) canvas.classList.add('is-live');
+    canvas.getContext('2d', { alpha: false })
+      .drawImage(video, (sw0 - sw) / 2, sy0 + (sh0 - sh) / 2, sw, sh, 0, 0, w, h);
+    return true;
   }
 
-  /** Repaint every on-screen tile whose clip has moved on to a new frame */
+  /** Repaint every on-screen tile whose clip has moved on to a new frame. Turning a video
+   *  frame into pixels is the costly part (small canvases are drawn on the CPU on phones),
+   *  so each new frame is drawn once and the clip's other tiles copy that canvas. */
   #paintClips() {
     this.#clips.forEach(clip => {
       const t = clip.video.currentTime;
-      if (t === clip.lastTime || !clip.canvases.size) return;
+      if (!clip.canvases.size || (t >= clip.lastTime && t - clip.lastTime < this.#clipStep)) return;
       clip.lastTime = t;
-      clip.canvases.forEach(canvas => this.#paint(clip, canvas));
+      let first = null;
+      clip.canvases.forEach(canvas => {
+        if (!first) {
+          if (this.#paint(clip, canvas)) first = canvas;
+        } else if (this.#fit(canvas)) {
+          canvas.getContext('2d', { alpha: false }).drawImage(first, 0, 0, canvas.width, canvas.height);
+        }
+      });
     });
+  }
+
+  /** While clips play, watch the frame rate. A phone that cannot keep up (median frame
+   *  over 45 ms, under about 22 fps, in two checks of 60 frames in a row) gets still tiles
+   *  instead, which keep drifting: the wall stays, the lag goes. The limit sits well
+   *  above 33 ms, because low-power modes (iPhone Low Power Mode) cap pages at 30 fps. */
+  #watchFrames(ts, ms) {
+    if (!this.#clips.size || this.#isPaused()) {
+      this.#frameTimes.length = 0;
+      this.#watchAfter = 0;
+      this.#slowChecks = 0;
+      return;
+    }
+    if (!this.#watchAfter) this.#watchAfter = ts + 2500; // let loading settle first
+    if (ts < this.#watchAfter) return;
+    this.#frameTimes.push(ms);
+    if (this.#frameTimes.length < 60) return;
+    const median = [...this.#frameTimes].sort((a, b) => a - b)[30];
+    this.#frameTimes.length = 0;
+    this.#slowChecks = median > 45 ? this.#slowChecks + 1 : 0;
+    if (this.#slowChecks >= 2) this.#dropClips();
+  }
+
+  #dropClips() {
+    this.#tileObserver?.disconnect();
+    this.#tileObserver = null;
+    this.#clips.forEach(({ video }) => {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    });
+    this.#clips.clear();
+    this.#sources?.remove();
+    this.#sources = null;
+    this.#root.querySelectorAll('.drift-wall__frame canvas').forEach(canvas => canvas.remove());
+    this.#root.classList.add('drift-wall--stills');
   }
 
   #build() {
@@ -1994,9 +2055,11 @@ class DriftWallController {
   tick(ts) {
     this.#rafId = null;
     if (!this.#visible || document.hidden) return;
+    const frameMs = this.#lastTs === null ? 0 : ts - this.#lastTs;
     if (this.#lastTs === null) this.#lastTs = ts;
     const dt = Math.min(0.05, Math.max(0, ts - this.#lastTs) / 1000);
     this.#lastTs = ts;
+    if (frameMs) this.#watchFrames(ts, frameMs);
 
     const paused = this.#isPaused();
 

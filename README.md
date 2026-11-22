@@ -91,7 +91,8 @@ CEDIREKO-FILMS-WEBSITE-PORTFOLIO/
 │   ├── SDE_PH_LAW_SCHOOL_web.mp4  # 1080p at about 2.2 Mbit/s, 87 MB, from a 2.0 GB master
 │   ├── ATE_MEL_web.mp4     # 1080p at about 3 Mbit/s, from the 548 MB master ATE MEL.mp4
 │   ├── STREETWEAR_web.mp4  # H.264 copy of the HEVC file v14044g…mp4 (PSNR 48.33 dB, SSIM 0.9947)
-│   └── previews/           # 3 s silent loops for touch-screen cards and the hero wall (115-290 KB each)
+│   └── previews/           # 3 s silent loops for touch-screen cards (115-290 KB each)
+│       └── wall/           # 360px copies for the hero wall tiles (about 770 KB in all)
 │
 └── tests/                  # Headless Chrome DevTools Protocol (CDP) test suite
     ├── run_tests.js        # Test runner and CLI entry point

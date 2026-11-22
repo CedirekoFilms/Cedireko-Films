@@ -2708,6 +2708,30 @@ dialog#video-modal.video-modal--portrait {
 }
 
 /* ==========================================================================
+   TOUCH SCREENS: LIGHTER GRAPHICS
+   Budget phones (tested against a Vivo Y18 report) redraw everything under a
+   blended or blurred layer on every frame. On touch screens the grain blends
+   normally (same faint texture) and the near-opaque header and play rings drop
+   their backdrop blur, which barely showed through their dark fill.
+   ========================================================================== */
+@media (hover: none) {
+  .grain {
+    mix-blend-mode: normal;
+    opacity: 0.025;
+  }
+
+  .site-header--scrolled,
+  .play-ring {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .play-ring {
+    background: rgba(24, 3, 7, 0.6);
+  }
+}
+
+/* ==========================================================================
    GSAP SCROLL MOTION
    ScrollMotionController (script.js) adds .gsap-motion to <html> when GSAP
    is loaded and the visitor has not asked for reduced motion. The rules below
